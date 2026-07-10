@@ -36,3 +36,10 @@ next-env.d.ts
 # OS files
 .DS_Store
 *.pem
+# frontend
+apps/frontend/node_modules/
+apps/frontend/.next/
+
+# backend
+apps/backend/node_modules/
+apps/backend/dist/
