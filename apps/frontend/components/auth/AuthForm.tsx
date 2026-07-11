@@ -112,10 +112,27 @@ export function AuthForm({ initialMode = "sign-in" }: { initialMode?: AuthMode }
 
     } else {
 
-      result = await loginUser({
-        email: values.email,
-        password: values.password,
-      });
+      const response = await loginUser({
+  email: values.email,
+  password: values.password,
+});
+
+if (response.accessToken) {
+  localStorage.setItem(
+    "accessToken",
+    response.accessToken
+  );
+
+  setSubmitted(true);
+
+  return;
+}
+
+setErrors({
+  email:
+    response.message ??
+    "Invalid email or password",
+});
 
     }
 

@@ -7,13 +7,15 @@ import { AuthService } from './auth.service';
 
 import { JwtStrategy } from './strategies/jwt.strategy';
 
+import { PrismaService } from '../prisma/prisma.service';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
 
   imports: [
 
     PassportModule,
-
+     MailModule,
     JwtModule.register({
       secret:
         process.env.JWT_SECRET || 'copy-cat-secret',
@@ -34,6 +36,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
   providers: [
     AuthService,
     JwtStrategy,
+    PrismaService,
   ],
 
 })

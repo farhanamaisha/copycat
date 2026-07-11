@@ -3,8 +3,10 @@ import {
   Post,
   Body,
   Get,
+  Query,
   UseGuards,
   Request,
+  Param,
 } from '@nestjs/common';
 
 import { AuthService } from './auth.service';
@@ -23,6 +25,7 @@ export class AuthController {
   ) {}
 
 
+
   @Post('register')
   register(
     @Body() dto: RegisterDto,
@@ -31,12 +34,25 @@ export class AuthController {
   }
 
 
+
+  @Get('verify-email/:token')
+  verifyEmail(
+    @Param('token') token: string,
+  ) {
+
+    return this.authService.verifyEmail(token);
+
+  }
+
+
+
   @Post('login')
   login(
     @Body() dto: LoginDto,
   ) {
     return this.authService.login(dto);
   }
+
 
 
   @UseGuards(JwtAuthGuard)
