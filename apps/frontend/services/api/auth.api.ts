@@ -1,4 +1,4 @@
-const API_URL = "http://localhost:5000/auth";
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/auth`;
 
 
 export async function registerUser(data: {
