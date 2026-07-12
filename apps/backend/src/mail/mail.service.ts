@@ -4,7 +4,7 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 
-import * as nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
 
 @Injectable()
@@ -14,25 +14,27 @@ export class MailService {
     new Logger(MailService.name);
 
 
-  private transporter =
-  nodemailer.createTransport({
+  private readonly resend: Resend;
 
-    host: "smtp.gmail.com",
+constructor() {
 
-    port: 587,
+  const apiKey =
+    process.env.RESEND_API_KEY;
 
-    secure: false,
 
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
+  if (!apiKey) {
 
-    tls: {
-      rejectUnauthorized: false,
-    },
+    throw new Error(
+      "RESEND_API_KEY is missing"
+    );
 
-  });
+  }
+
+
+  this.resend =
+    new Resend(apiKey);
+
+}
 
 
 
@@ -51,16 +53,14 @@ export class MailService {
     try{
 
 
-      await this.transporter.sendMail({
+      const {
+        data,
+        error,
+      } =
+      await this.resend.emails.send({
 
-        from:{
 
-          name:'Copy-Cat',
-
-          address:
-          process.env.EMAIL_USER!,
-
-        },
+       from: 'Copy-Cat <onboarding@resend.dev>',
 
 
         to:email,
@@ -94,7 +94,7 @@ export class MailService {
           </p>
 
 
-          <a 
+          <a
           href="${verificationUrl}"
           style="
           display:inline-block;
@@ -129,8 +129,33 @@ export class MailService {
         `,
 
 
+        text:
+        `Verify your email by visiting:\n\n${verificationUrl}\n\nThis link expires in 24 hours.`,
+
       });
 
+
+
+
+      if(error){
+
+        this.logger.error(
+          `Failed sending verification email to ${email}`,
+          error,
+        );
+
+        throw new ServiceUnavailableException(
+          'Unable to send verification email.',
+        );
+
+      }
+
+
+
+
+      this.logger.log(
+        `Verification email sent to ${email}. Email ID: ${data?.id}`,
+      );
 
 
     }
