@@ -152,60 +152,28 @@ return {
   // LOGIN
   // =========================
 
-  async login(dto: LoginDto) {
+async login(dto: LoginDto) {
+  try {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
 
-
-    const user =
-      await this.prisma.user.findUnique({
-
-        where:{
-          email:dto.email,
-        },
-
-      });
-
-
-
-    if(!user){
-
-      throw new UnauthorizedException(
-        'Invalid credentials',
-      );
-
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
+    const passwordMatch = await bcrypt.compare(dto.password, user.password);
 
-
-    const passwordMatch =
-      await bcrypt.compare(
-
-        dto.password,
-
-        user.password,
-
-      );
-
-
-
-    if(!passwordMatch){
-
-      throw new UnauthorizedException(
-        'Invalid credentials',
-      );
-
+    if (!passwordMatch) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-
-
-   
-
-
-    return this.createToken(
-      user.id,
-      user.email,
-    );
-
+    return this.createToken(user.id, user.email);
+  } catch (err) {
+    console.error('LOGIN ERROR:', err);
+    throw err;
   }
+}
 
 
 
