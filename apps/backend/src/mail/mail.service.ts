@@ -1,9 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+
 import * as nodemailer from 'nodemailer';
 
 
 @Injectable()
 export class MailService {
+
+  private readonly logger =
+    new Logger(MailService.name);
 
 
   private transporter =
@@ -12,11 +20,15 @@ export class MailService {
       service:'gmail',
 
       auth:{
+
         user:process.env.EMAIL_USER,
+
         pass:process.env.EMAIL_PASS,
+
       },
 
     });
+
 
 
 
@@ -26,33 +38,115 @@ export class MailService {
   ){
 
 
-    const url =
-  `${process.env.BACKEND_URL}/auth/verify-email/${token}`;
+    const verificationUrl =
+      `${process.env.BACKEND_URL}/auth/verify-email/${token}`;
 
 
-    await this.transporter.sendMail({
 
-      from:process.env.EMAIL_USER,
+    try{
 
-      to:email,
 
-      subject:'Verify your Copy-Cat account',
+      await this.transporter.sendMail({
 
-      html:`
+        from:{
 
-      <h2>Welcome to Copy-Cat</h2>
+          name:'Copy-Cat',
 
-      <p>Click below to verify your email:</p>
+          address:
+          process.env.EMAIL_USER!,
 
-      <a href="${url}">
-      Verify Email
-      </a>
+        },
 
-      `,
 
-    });
+        to:email,
+
+
+        subject:
+        'Verify your Copy-Cat account',
+
+
+
+        html:`
+
+        <!DOCTYPE html>
+
+        <html>
+
+        <body>
+
+          <h2>
+            Welcome to Copy-Cat
+          </h2>
+
+
+          <p>
+            Thanks for creating your account.
+          </p>
+
+
+          <p>
+            Please verify your email address:
+          </p>
+
+
+          <a 
+          href="${verificationUrl}"
+          style="
+          display:inline-block;
+          padding:12px 20px;
+          background:#000;
+          color:#fff;
+          text-decoration:none;
+          border-radius:6px;
+          "
+          >
+
+          Verify Email
+
+          </a>
+
+
+          <p>
+            This verification link expires in 24 hours.
+          </p>
+
+
+          <p>
+            If you did not create this account,
+            you can ignore this email.
+          </p>
+
+
+        </body>
+
+        </html>
+
+        `,
+
+
+      });
+
+
+
+    }
+    catch(error){
+
+
+      this.logger.error(
+        `Failed sending verification email to ${email}`,
+        error,
+      );
+
+
+      throw new ServiceUnavailableException(
+        'Unable to send verification email.',
+      );
+
+
+    }
 
 
   }
+
 
 }

@@ -71,4 +71,8 @@ model PendingUser {
   expiresAt DateTime
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@index([email])
+  @@index([token])
 }
