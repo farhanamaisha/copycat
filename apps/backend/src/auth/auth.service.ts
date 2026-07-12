@@ -147,17 +147,13 @@ export class AuthService {
 
       }catch(error){
 
-        this.logger.error(
-          'Verification email resend failed',
-          error,
-        );
+  console.error("EMAIL SEND ERROR:", error);
 
+  throw new ServiceUnavailableException(
+    'Your registration was created but verification email could not be sent.',
+  );
 
-        throw new ServiceUnavailableException(
-          'Registration exists but verification email could not be sent. Please try again later.',
-        );
-
-      }
+}
 
 
 
