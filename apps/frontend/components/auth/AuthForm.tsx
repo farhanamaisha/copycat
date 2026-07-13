@@ -6,7 +6,7 @@ import {
 import { useState, type FormEvent, type ChangeEvent } from "react";
 import { AuthInput } from "../ui/AuthInput";
 import { SocialButton } from "../ui/SocialButton";
-
+import { useRouter } from "next/navigation";
 export type AuthMode = "sign-in" | "create-account";
 
 interface FormValues {
@@ -40,7 +40,7 @@ export function AuthForm({ initialMode = "sign-in" }: { initialMode?: AuthMode }
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-
+  const router = useRouter();
   const isSignUp = mode === "create-account";
 
   function switchMode(next: AuthMode) {
@@ -123,7 +123,7 @@ if (response.accessToken) {
     response.accessToken
   );
 
-  setSubmitted(true);
+  router.push("/dashboard");
 
   return;
 }
