@@ -1,5 +1,10 @@
 // apps/frontend/services/api/auth.api.ts
+
 import { apiClient } from "./client";
+
+export interface ApiMessageResponse {
+  message: string;
+}
 
 export interface AuthResponse {
   accessToken: string;
@@ -16,8 +21,8 @@ export async function registerUser(data: {
   username: string;
   email: string;
   password: string;
-}): Promise<{ message: string }> {
-  return apiClient.post<{ message: string }>("/auth/register", data);
+}): Promise<ApiMessageResponse> {
+  return apiClient.post<ApiMessageResponse>("/auth/register", data);
 }
 
 export async function loginUser(data: {
@@ -35,17 +40,21 @@ export async function refreshToken(): Promise<{ accessToken: string }> {
   return apiClient.post<{ accessToken: string }>("/auth/refresh", {});
 }
 
-export async function verifyEmail(token: string): Promise<{ message: string }> {
-  return apiClient.post<{ message: string }>("/auth/verify-email", { token });
+export async function verifyEmail(
+  token: string,
+): Promise<ApiMessageResponse> {
+  return apiClient.post<ApiMessageResponse>("/auth/verify-email", { token });
 }
 
-export async function forgotPassword(email: string): Promise<{ message: string }> {
-  return apiClient.post<{ message: string }>("/auth/forgot-password", { email });
+export async function forgotPassword(
+  email: string,
+): Promise<ApiMessageResponse> {
+  return apiClient.post<ApiMessageResponse>("/auth/forgot-password", { email });
 }
 
 export async function resetPassword(data: {
   token: string;
   password: string;
-}): Promise<{ message: string }> {
-  return apiClient.post<{ message: string }>("/auth/reset-password", data);
+}): Promise<ApiMessageResponse> {
+  return apiClient.post<ApiMessageResponse>("/auth/reset-password", data);
 }
