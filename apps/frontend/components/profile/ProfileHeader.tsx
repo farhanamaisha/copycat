@@ -11,7 +11,7 @@ import { useCurrentUser } from "@/hooks/useDashboard";
 export function ProfileHeader() {
   const { user, clone, isLoading } = useCurrentUser();
 
-  if (isLoading) {
+  if (isLoading||!user) {
     return (
       <div className="rounded-2xl border border-white/[0.08] bg-white/[0.03] p-6">
         <div className="flex items-start gap-5">

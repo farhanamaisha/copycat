@@ -1,50 +1,51 @@
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/auth`;
+// apps/frontend/services/api/auth.api.ts
+import { apiClient } from "./client";
 
+export interface AuthResponse {
+  accessToken: string;
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    displayName: string;
+    avatarUrl: string | null;
+  };
+}
 
 export async function registerUser(data: {
   username: string;
   email: string;
   password: string;
-}) {
-
-  const response = await fetch(
-    `${API_URL}/register`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-
-      body: JSON.stringify(data),
-    }
-  );
-
-
-  return response.json();
-
+}): Promise<{ message: string }> {
+  return apiClient.post<{ message: string }>("/auth/register", data);
 }
-
-
 
 export async function loginUser(data: {
   email: string;
   password: string;
-}) {
+}): Promise<AuthResponse> {
+  return apiClient.post<AuthResponse>("/auth/login", data);
+}
 
-  const response = await fetch(
-    `${API_URL}/login`,
-    {
-      method: "POST",
+export async function logoutUser(): Promise<void> {
+  return apiClient.post<void>("/auth/logout", {});
+}
 
-      headers: {
-        "Content-Type": "application/json",
-      },
+export async function refreshToken(): Promise<{ accessToken: string }> {
+  return apiClient.post<{ accessToken: string }>("/auth/refresh", {});
+}
 
-      body: JSON.stringify(data),
-    }
-  );
+export async function verifyEmail(token: string): Promise<{ message: string }> {
+  return apiClient.post<{ message: string }>("/auth/verify-email", { token });
+}
 
+export async function forgotPassword(email: string): Promise<{ message: string }> {
+  return apiClient.post<{ message: string }>("/auth/forgot-password", { email });
+}
 
-  return response.json();
-
+export async function resetPassword(data: {
+  token: string;
+  password: string;
+}): Promise<{ message: string }> {
+  return apiClient.post<{ message: string }>("/auth/reset-password", data);
 }

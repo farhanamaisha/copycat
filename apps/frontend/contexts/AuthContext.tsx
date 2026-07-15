@@ -8,12 +8,7 @@ import {
 } from "react";
 
 import { getCurrentUser } from "@/services/api/user.api";
-
-
-interface User {
-  userId: string;
-  email: string;
-}
+import type { User } from "@/types";
 
 
 interface AuthContextType {
@@ -59,7 +54,7 @@ export function AuthProvider({
           await getCurrentUser();
 
 
-        setUser(data.user);
+        setUser(data);
 
 
       } catch (error) {

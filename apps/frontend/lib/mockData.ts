@@ -73,10 +73,10 @@ const makeUser = (
   bio: null,
   followersCount: followers,
   followingCount: Math.floor(followers * 0.4),
-  clowdersCount: Math.floor(Math.random() * 10) + 1,
+  clowdersCount: 5,
   createdAt: "2025-10-01T00:00:00Z",
-  isVerified: Math.random() > 0.6,
-  isPremium: Math.random() > 0.5,
+  isVerified: false,
+  isPremium: false,
 });
 
 export const MOCK_SUGGESTED_USERS: User[] = [

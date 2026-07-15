@@ -1,10 +1,38 @@
 // apps/frontend/app/(dashboard)/layout.tsx
+"use client";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import type { ReactNode } from "react";
 import { Sidebar } from "@/components/navigation/Sidebar";
 import { Topbar } from "@/components/navigation/Topbar";
 import { FloatingCloneWidget } from "@/components/clone/FloatingCloneWidget";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
+   const { user, loading } = useAuth();
+  const router = useRouter();
+
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#080811] text-white">
+        Loading...
+      </div>
+    );
+  }
+
+  useEffect(() => {
+  if (!loading && !user) {
+    router.push("/sign-in");
+  }
+}, [loading, user, router]);
+
+if (loading || !user) {
+  return (
+    <div className="h-screen flex items-center justify-center bg-[#080811] text-white">
+      Loading...
+    </div>
+  );
+}
   return (
     <div className="relative min-h-screen bg-[#080811] text-[#f0f0ff]">
       {/* Ambient mesh background */}

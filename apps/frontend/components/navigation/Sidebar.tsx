@@ -56,7 +56,7 @@ export function Sidebar() {
           <>
             <div className="flex items-center gap-3 mb-3">
               <div className="relative">
-                <Avatar name={user.displayName} size="sm" />
+                <Avatar name={user?.displayName ?? "User"} size="sm" />
                 <Avatar
                   name={clone.name}
                   size="xs"
@@ -67,10 +67,10 @@ export function Sidebar() {
               </div>
               <div className="min-w-0">
                 <p className="text-[13px] font-semibold text-white truncate">
-                  {user.displayName}
+                  {user?.displayName ?? "user"}
                 </p>
                 <p className="text-[11px] text-white/40 truncate">
-                  @{user.username}
+                  @{user?.username?? "user"}
                 </p>
               </div>
             </div>

@@ -14,10 +14,12 @@ async function bootstrap() {
   // Allow frontend to connect
   app.enableCors({
   origin: [
-    'http://localhost:3000',
-    'https://copycat-mauve.vercel.app',       // ← your exact Vercel URL
-    /\.vercel\.app$/,                     // ← covers all Vercel preview deployments
-  ],
+  'http://localhost:3000',
+  'https://copycatapp.me',
+  'https://www.copycatapp.me',
+  'https://copycat-mauve.vercel.app', // keep this for now
+  /\.vercel\.app$/,
+],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,

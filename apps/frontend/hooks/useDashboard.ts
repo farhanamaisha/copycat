@@ -12,15 +12,16 @@ import {
   MOCK_SUGGESTED_CLOWDERS,
 } from "@/lib/mockData";
 
+import { useAuth } from "@/contexts/AuthContext";
+
 export function useCurrentUser() {
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, loading } = useAuth();
 
-  useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 600);
-    return () => clearTimeout(t);
-  }, []);
-
-  return { user: MOCK_USER, clone: MOCK_CLONE, isLoading };
+  return {
+    user,
+    clone: MOCK_CLONE, // Keep using mock clone until your clone API is ready
+    isLoading: loading,
+  };
 }
 
 export function useFeed() {

@@ -491,6 +491,8 @@ export class AuthService {
     return this.createToken(
       user.id,
       user.email,
+      user.username,
+
     );
 
   }
@@ -521,6 +523,7 @@ export class AuthService {
   private createToken(
     id:string,
     email:string,
+    username:string,
   ){
 
     return {
@@ -531,6 +534,7 @@ export class AuthService {
           sub:id,
 
           email,
+          username,
 
         }),
 
