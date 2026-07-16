@@ -60,7 +60,7 @@ constructor() {
       await this.resend.emails.send({
 
 
-       from: 'Copy-Cat <onboarding@resend.dev>',
+       from: 'Copy-Cat <noreply@copycatapp.me>',
 
 
         to:email,
