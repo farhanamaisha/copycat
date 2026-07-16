@@ -129,36 +129,15 @@ if (response.accessToken) {
 }
 
 setErrors({
-  email:
-    response.message ??
-    "Invalid email or password",
+  email: "Invalid email or password",
 });
 
     }
 
 
-    console.log(result);
-
-
-    if (result.accessToken) {
-
-      localStorage.setItem(
-        "accessToken",
-        result.accessToken
-      );
-
-      setSubmitted(true);
-
-    } else {
-
-       setErrors({
-    email:
-      typeof result.message === "string"
-        ? result.message
-        : result.message?.message || "Authentication failed",
-  });
-
-    }
+    if (isSignUp) {
+  setSubmitted(true);
+}
 
 
   } catch (error) {
