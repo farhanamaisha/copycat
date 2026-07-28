@@ -9,10 +9,16 @@ import { Topbar } from "@/components/navigation/Topbar";
 import { FloatingCloneWidget } from "@/components/clone/FloatingCloneWidget";
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
-   const { user, loading } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/sign-in");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) {
     return (
       <div className="h-screen flex items-center justify-center bg-[#080811] text-white">
         Loading...
@@ -20,19 +26,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  useEffect(() => {
-  if (!loading && !user) {
-    router.push("/sign-in");
-  }
-}, [loading, user, router]);
-
-if (loading || !user) {
-  return (
-    <div className="h-screen flex items-center justify-center bg-[#080811] text-white">
-      Loading...
-    </div>
-  );
-}
   return (
     <div className="relative min-h-screen bg-[#080811] text-[#f0f0ff]">
       {/* Ambient mesh background */}

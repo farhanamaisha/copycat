@@ -283,11 +283,12 @@ export class AuthService {
 
 
 
+    let newUser;
     await this.prisma.$transaction(
       async(tx)=>{
 
 
-        await tx.user.create({
+        newUser = await tx.user.create({
 
           data:{
 
@@ -301,12 +302,28 @@ export class AuthService {
             pending.password,
 
             emailVerified:true,
+            isVerified: false,
 
           },
 
         });
 
-
+        // Create default Clone for the user
+        await tx.clone.create({
+          data: {
+            userId: newUser.id,
+            name: pending.username + "'s Clone",
+            traits: {
+              create: [
+                { name: 'Humor', value: 50 },
+                { name: 'Empathy', value: 50 },
+                { name: 'Creativity', value: 50 },
+                { name: 'Logic', value: 50 },
+                { name: 'Curiosity', value: 50 },
+              ],
+            },
+          },
+        });
 
         await tx.pendingUser.delete({
 
@@ -492,7 +509,8 @@ export class AuthService {
       user.id,
       user.email,
       user.username,
-
+      user.displayName,
+      user.avatarUrl,
     );
 
   }
@@ -524,6 +542,8 @@ export class AuthService {
     id:string,
     email:string,
     username:string,
+    displayName: string | null,
+    avatarUrl: string | null,
   ){
 
     return {
@@ -537,6 +557,14 @@ export class AuthService {
           username,
 
         }),
+
+      user: {
+        id,
+        email,
+        username,
+        displayName: displayName || username,
+        avatarUrl: avatarUrl || null,
+      },
 
     };
 

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/common/Avatar";
 import { Badge } from "@/components/common/Badge";
 import { cn } from "@/lib/utils";
 import { MOCK_CLONE } from "@/lib/mockData";
+import { apiRequest } from "@/lib/api";
 
 const TRAINING_PROMPTS = [
   "What's your honest opinion on AI replacing creative jobs?",
@@ -48,39 +49,76 @@ export default function TrainClonePage() {
 
     setIsTraining(true);
 
-    // Simulate API call delay
-    await new Promise((r) => setTimeout(r, 1200));
+    try {
+      const analysis = await apiRequest<{
+        summary: string;
+        traits: Array<{ name: string; delta: number }>;
+        pointsEarned: number;
+        suggestedReply: string;
+      }>('/ai/train', {
+        method: 'POST',
+        body: JSON.stringify({
+          prompt: activePrompt ?? 'Custom training',
+          response: message,
+        }),
+      });
 
-    const delta = {
-      Humor: Math.floor(Math.random() * 6) - 2,
-      Creativity: Math.floor(Math.random() * 5),
-      Empathy: Math.floor(Math.random() * 4) - 1,
-    };
+      const delta = Object.fromEntries(
+        analysis.traits.map((trait) => [trait.name, trait.delta])
+      ) as Record<string, number>;
 
-    const entry: TrainingEntry = {
-      id: `train_${Date.now()}`,
-      prompt: activePrompt ?? "Custom training",
-      response: message,
-      traits: Object.keys(delta).filter((k) => delta[k as keyof typeof delta] > 0),
-      pointsEarned: Math.floor(Math.random() * 5) + 1,
-      timestamp: new Date().toISOString(),
-    };
+      const entry: TrainingEntry = {
+        id: `train_${Date.now()}`,
+        prompt: activePrompt ?? 'Custom training',
+        response: message,
+        traits: analysis.traits.map((trait) => trait.name),
+        pointsEarned: analysis.pointsEarned,
+        timestamp: new Date().toISOString(),
+      };
 
-    setHistory((prev) => [entry, ...prev]);
-    setLastDelta(delta);
-    setClone((prev) => ({
-      ...prev,
-      personalityProgress: Math.min(100, prev.personalityProgress + 1),
-      trainingCount: prev.trainingCount + 1,
-      traits: prev.traits.map((t) => ({
-        ...t,
-        value: Math.min(100, t.value + Math.max(0, delta[t.name as keyof typeof delta] ?? 0)),
-      })),
-    }));
+      setHistory((prev) => [entry, ...prev]);
+      setLastDelta(delta);
+      setClone((prev) => ({
+        ...prev,
+        personalityProgress: Math.min(100, prev.personalityProgress + 1),
+        trainingCount: prev.trainingCount + 1,
+        traits: prev.traits.map((t) => ({
+          ...t,
+          value: Math.min(100, t.value + Math.max(0, delta[t.name] ?? 0)),
+        })),
+      }));
+    } catch {
+      const fallbackDelta = {
+        Humor: Math.floor(Math.random() * 6) - 2,
+        Creativity: Math.floor(Math.random() * 5),
+        Empathy: Math.floor(Math.random() * 4) - 1,
+      };
 
-    setInput("");
-    setActivePrompt(null);
-    setIsTraining(false);
+      const entry: TrainingEntry = {
+        id: `train_${Date.now()}`,
+        prompt: activePrompt ?? 'Custom training',
+        response: message,
+        traits: Object.keys(fallbackDelta).filter((k) => fallbackDelta[k as keyof typeof fallbackDelta] > 0),
+        pointsEarned: Math.floor(Math.random() * 5) + 1,
+        timestamp: new Date().toISOString(),
+      };
+
+      setHistory((prev) => [entry, ...prev]);
+      setLastDelta(fallbackDelta);
+      setClone((prev) => ({
+        ...prev,
+        personalityProgress: Math.min(100, prev.personalityProgress + 1),
+        trainingCount: prev.trainingCount + 1,
+        traits: prev.traits.map((t) => ({
+          ...t,
+          value: Math.min(100, t.value + Math.max(0, fallbackDelta[t.name as keyof typeof fallbackDelta] ?? 0)),
+        })),
+      }));
+    } finally {
+      setInput("");
+      setActivePrompt(null);
+      setIsTraining(false);
+    }
   }
 
   return (

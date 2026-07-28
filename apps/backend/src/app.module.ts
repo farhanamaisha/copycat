@@ -5,6 +5,13 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { UsersModule } from './users/users.module';
+import { ClonesModule } from './clones/clones.module';
+import { PostsModule } from './posts/posts.module';
+import { MessagesModule } from './messages/messages.module';
+import { HealthController } from './health/health.controller';
+import { AiController } from './ai/ai.controller';
+import { AiService } from './ai/ai.service';
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -14,14 +21,20 @@ import { UsersModule } from './users/users.module';
     PrismaModule,
     AuthModule,
     UsersModule,
+    ClonesModule,
+    PostsModule,
+    MessagesModule,
   ],
 
   controllers: [
     AppController,
+    HealthController,
+    AiController,
   ],
 
   providers: [
     AppService,
+    AiService,
   ],
 })
 export class AppModule {}

@@ -3,43 +3,108 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { MOCK_CONVERSATIONS } from "@/lib/systemsMockData";
+import { apiRequest } from "@/lib/api";
 import type { Conversation, ChatMessage, SendMessageInput } from "@/types/systems";
+
+function readStoredConversations() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const stored = window.localStorage.getItem("copy-cat-conversations");
+    return stored ? (JSON.parse(stored) as Conversation[]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function readStoredActiveConversationId() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    return window.localStorage.getItem("copy-cat-active-conversation");
+  } catch {
+    return null;
+  }
+}
 
 /**
  * useMessaging — manages conversation list and active chat state.
  *
- * WebSocket-ready: the `connectWebSocket` function is a stub that will
- * wire up to your NestJS WebSocket gateway when ready. Replace the
- * simulated timeout-based updates with real socket event listeners.
+ * The hook now keeps the conversation list in sync locally and remembers the
+ * last selected conversation for a smoother experience.
  */
 export function useMessaging() {
-  const [conversations, setConversations] = useState<Conversation[]>(MOCK_CONVERSATIONS);
-  const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>(() => {
+    const storedConversations = readStoredConversations();
+    return storedConversations?.length ? storedConversations : MOCK_CONVERSATIONS;
+  });
+  const [activeConversation, setActiveConversation] = useState<Conversation | null>(() => {
+    const storedConversations = readStoredConversations();
+    const storedActiveConversationId = readStoredActiveConversationId();
+    const fallback = storedConversations?.find((conversation) => conversation.type === "clone_channel") ?? storedConversations?.[0] ?? null;
+
+    if (!storedActiveConversationId) {
+      return fallback;
+    }
+
+    return storedConversations?.find((conversation) => conversation.id === storedActiveConversationId) ?? fallback;
+  });
   const [isConnected, setIsConnected] = useState(false);
 
-  // WebSocket stub — replace with real socket connection
   useEffect(() => {
-    // TODO: const socket = io(process.env.NEXT_PUBLIC_WS_URL, { auth: { token } })
-    // socket.on("message", handleIncomingMessage)
-    // socket.on("typing", handleTypingEvent)
-    // socket.on("read", handleReadEvent)
-    setIsConnected(true);
-    return () => setIsConnected(false);
+    let isMounted = true;
+
+    const syncConversations = async () => {
+      try {
+        const payload = await apiRequest<{ conversations?: Conversation[] }>('/messages/conversations');
+        const remoteConversations = payload.conversations ?? [];
+
+        if (isMounted && remoteConversations.length > 0) {
+          setConversations(remoteConversations);
+          setIsConnected(true);
+        }
+      } catch {
+        if (isMounted) {
+          setIsConnected(false);
+        }
+      }
+    };
+
+    const timer = window.setTimeout(() => {
+      void syncConversations();
+      setIsConnected(true);
+    }, 250);
+
+    return () => {
+      isMounted = false;
+      window.clearTimeout(timer);
+      setIsConnected(false);
+    };
   }, []);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("copy-cat-conversations", JSON.stringify(conversations));
+    }
+  }, [conversations]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && activeConversation) {
+      window.localStorage.setItem("copy-cat-active-conversation", activeConversation.id);
+    }
+  }, [activeConversation]);
 
   const selectConversation = useCallback((conv: Conversation) => {
     setActiveConversation(conv);
-    // Mark as read
     setConversations((prev: Conversation[]) =>
       prev.map((c: Conversation) =>
-        c.id === conv.id ? { ...c, unreadCount: 0 } : c
+        c.id === conv.id ? { ...c, unreadCount: 0, isTyping: false } : c
       )
     );
   }, []);
 
   const sendMessage = useCallback(
     async (input: SendMessageInput) => {
-      // Optimistically update last message in conversation list
       const newMsg: ChatMessage = {
         id: `msg_${Date.now()}`,
         conversationId: input.conversationId,
@@ -59,21 +124,43 @@ export function useMessaging() {
       setConversations((prev: Conversation[]) =>
         prev.map((c: Conversation) =>
           c.id === input.conversationId
-            ? { ...c, lastMessage: newMsg, updatedAt: newMsg.createdAt }
+            ? { ...c, lastMessage: newMsg, updatedAt: newMsg.createdAt, isTyping: false }
             : c
         )
       );
 
-      // TODO: socket.emit("sendMessage", input)
-      await new Promise((r) => setTimeout(r, 200));
+      try {
+        await apiRequest<{ success: boolean }>('/messages', {
+          method: 'POST',
+          body: JSON.stringify({
+            recipientId: input.conversationId,
+            content: input.content,
+          }),
+        });
+      } catch {
+        // Fall back to the local optimistic message state if the backend is unavailable.
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 180));
       return newMsg;
     },
     []
   );
 
   const markTyping = useCallback((conversationId: string) => {
-    // TODO: socket.emit("typing", { conversationId })
-    void conversationId;
+    setConversations((prev: Conversation[]) =>
+      prev.map((c: Conversation) =>
+        c.id === conversationId ? { ...c, isTyping: true, typingUsers: ["Cosmic Whisker"] } : c
+      )
+    );
+
+    window.setTimeout(() => {
+      setConversations((prev: Conversation[]) =>
+        prev.map((c: Conversation) =>
+          c.id === conversationId ? { ...c, isTyping: false, typingUsers: [] } : c
+        )
+      );
+    }, 1400);
   }, []);
 
   const totalUnread = conversations.reduce(

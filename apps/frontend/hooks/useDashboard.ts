@@ -4,8 +4,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { Post, FeedFilters, Notification } from "@/types";
 import {
-  MOCK_USER,
-  MOCK_CLONE,
   MOCK_POSTS,
   MOCK_NOTIFICATIONS,
   MOCK_SUGGESTED_USERS,
@@ -13,14 +11,45 @@ import {
 } from "@/lib/mockData";
 
 import { useAuth } from "@/contexts/AuthContext";
+import { apiClient } from "@/services/api/client";
 
 export function useCurrentUser() {
   const { user, loading } = useAuth();
+  const [clone, setClone] = useState<any>(null);
+  const [cloneLoading, setCloneLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const loadClone = async () => {
+      try {
+        const cloneData = await apiClient.get("/clones/me");
+        setClone(cloneData);
+      } catch (error) {
+        console.error("Failed to load clone:", error);
+        // Fall back to a default clone structure
+        setClone({
+          id: "default_clone",
+          userId: user.id,
+          name: user.displayName + "'s Clone",
+          mood: "curious",
+          level: 1,
+          accuracyPercent: 0,
+          isOnline: false,
+          traits: [],
+        });
+      } finally {
+        setCloneLoading(false);
+      }
+    };
+
+    loadClone();
+  }, [user]);
 
   return {
     user,
-    clone: MOCK_CLONE, // Keep using mock clone until your clone API is ready
-    isLoading: loading,
+    clone,
+    isLoading: loading || cloneLoading,
   };
 }
 
@@ -34,11 +63,24 @@ export function useFeed() {
 
   useEffect(() => {
     setIsLoading(true);
-    const t = setTimeout(() => {
-      setPosts(MOCK_POSTS);
-      setIsLoading(false);
-    }, 800);
-    return () => clearTimeout(t);
+    const loadFeed = async () => {
+      try {
+        const feedData = await apiClient.get("/posts/feed");
+        setPosts(Array.isArray(feedData) ? feedData : []);
+      } catch (error) {
+        console.error("Failed to load feed:", error);
+        // Fall back to mock posts
+        setPosts(MOCK_POSTS);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const timer = setTimeout(() => {
+      loadFeed();
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [filters]);
 
   const toggleLike = useCallback((postId: string) => {
@@ -49,6 +91,11 @@ export function useFeed() {
           : p
       )
     );
+
+    // Sync with backend
+    apiClient.post(`/posts/${postId}/like`, {}).catch((error) => {
+      console.error("Failed to toggle like:", error);
+    });
   }, []);
 
   const toggleBookmark = useCallback((postId: string) => {
@@ -118,10 +165,16 @@ export function useCloneWidget() {
     return () => clearInterval(t);
   }, [THOUGHTS.length]);
 
+  const { clone } = useCurrentUser();
+
   return {
     isOpen,
     setIsOpen,
     currentThought: THOUGHTS[thought],
-    clone: MOCK_CLONE,
+    clone: clone || {
+      id: "default_clone",
+      name: "Clone",
+      mood: "curious",
+    },
   };
 }
