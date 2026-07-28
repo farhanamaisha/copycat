@@ -52,7 +52,9 @@ export function Sidebar() {
               <div className="h-2.5 bg-white/10 rounded w-16" />
             </div>
           </div>
-        ) : (
+        ) : !clone ? (
+  null
+) : (
           <>
             <div className="flex items-center gap-3 mb-3">
               <div className="relative">
