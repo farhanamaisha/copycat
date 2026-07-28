@@ -12,10 +12,35 @@ import {
 
 import { useAuth } from "@/contexts/AuthContext";
 import { apiClient } from "@/services/api/client";
+interface CloneTrait {
+  name: string;
+  value: number;
+}
+
+interface CloneActivity {
+  id: string;
+  type: string;
+  description: string;
+  timestamp: string;
+}
+
+interface Clone {
+  id: string;
+  userId: string;
+  name: string;
+  mood: string;
+  level: number;
+  accuracyPercent: number;
+  isOnline: boolean;
+  trainingCount: number;
+  personalityProgress: number;
+  traits: CloneTrait[];
+  recentActivity: CloneActivity[];
+}
 
 export function useCurrentUser() {
   const { user, loading } = useAuth();
-  const [clone, setClone] = useState<any>(null);
+  const [clone, setClone] = useState<Clone | null>(null);
   const [cloneLoading, setCloneLoading] = useState(true);
 
   useEffect(() => {
@@ -23,21 +48,24 @@ export function useCurrentUser() {
 
     const loadClone = async () => {
       try {
-        const cloneData = await apiClient.get("/clones/me");
-        setClone(cloneData);
+       const cloneData = await apiClient.get("/clones/me") as Clone;
+       setClone(cloneData);
       } catch (error) {
         console.error("Failed to load clone:", error);
         // Fall back to a default clone structure
         setClone({
-          id: "default_clone",
-          userId: user.id,
-          name: user.displayName + "'s Clone",
-          mood: "curious",
-          level: 1,
-          accuracyPercent: 0,
-          isOnline: false,
-          traits: [],
-        });
+  id: "default_clone",
+  userId: user.id,
+  name: user.displayName + "'s Clone",
+  mood: "curious",
+  level: 1,
+  accuracyPercent: 0,
+  isOnline: false,
+  trainingCount: 0,
+  personalityProgress: 0,
+  traits: [],
+  recentActivity: [],
+});
       } finally {
         setCloneLoading(false);
       }

@@ -27,6 +27,9 @@ export function CloneStatusCard() {
       </div>
     );
   }
+  if (!clone) {
+  return null;
+  }
 
   const moodConfig = CLONE_MOODS[clone.mood];
 
