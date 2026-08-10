@@ -1,18 +1,14 @@
-import { ConfigService } from '@nestjs/config';
+// apps/backend/src/ai/ai.service.spec.ts
+
 import { AiService } from './ai.service';
+import { PrismaService } from '../prisma/prisma.service';
 
 describe('AiService', () => {
-  it('returns a heuristic training analysis when OpenAI is unavailable', async () => {
-    const service = new AiService(new ConfigService());
+  it('throws when GEMINI_API_KEY is missing', () => {
+    delete process.env.GEMINI_API_KEY;
 
-    const result = await service.analyzeTraining(
-      'I love building things that help people feel more understood.',
-      'What matters to you most?',
+    expect(() => new AiService({} as PrismaService)).toThrow(
+      'GEMINI_API_KEY is not set in environment variables.',
     );
-
-    expect(result.summary).toContain('training');
-    expect(result.traits.length).toBeGreaterThan(0);
-    expect(result.pointsEarned).toBeGreaterThan(0);
-    expect(result.suggestedReply).toBeTruthy();
   });
 });

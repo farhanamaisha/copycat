@@ -1,9 +1,10 @@
 // apps/frontend/app/(dashboard)/profile/page.tsx
 "use client";
-
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getCurrentUser } from "@/services/api/user.api";
+import type { User,Clone } from "@/types";
 import { cn, formatNumber, formatRelativeTime } from "@/lib/utils";
-
+import { getMyClone } from "@/services/api/clone.api";
 const TABS = ["Posts", "Clones", "Clowders", "Bookmarks"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -30,6 +31,35 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<Tab>("Posts");
   const [isFollowing, setIsFollowing] = useState(false);
   const [likedPosts, setLikedPosts] = useState<Set<string>>(new Set());
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [clone, setClone] = useState<Clone | null>(null);
+
+  useEffect(() => {
+  async function loadData() {
+    try {
+      const userData = await getCurrentUser();
+      setUser(userData);
+
+      try {
+        const cloneData = await getMyClone();
+        setClone(cloneData);
+      } catch (error) {
+        console.error("Failed to load clone:", error);
+      }
+
+    } catch (error) {
+      console.error("Failed to load user:", error);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadData();
+}, []);
+  if (loading) {
+  return <p className="text-white">Loading profile...</p>;
+}
 
   function toggleLike(id: string) {
     setLikedPosts((prev) => {
@@ -53,7 +83,11 @@ export default function ProfilePage() {
           <div className="flex items-end justify-between -mt-10 mb-4">
             <div className="flex items-end gap-3">
               <div className="w-20 h-20 rounded-full bg-gradient-to-br from-white/10 to-white/5 border-4 border-[#080811] flex items-center justify-center text-2xl font-bold text-white/60 ring-2 ring-white/[0.08]">
-                CW
+                {(
+  user?.displayName ||
+  user?.username ||
+  "U"
+).slice(0,2).toUpperCase()}
               </div>
               <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#4f9fff] via-[#a78bfa] to-[#22d3ee] border-4 border-[#080811] flex items-center justify-center text-xl shadow-[0_0_20px_rgba(79,159,255,0.3)] mb-1">
                 🐱
@@ -79,35 +113,55 @@ export default function ProfilePage() {
           <div className="flex items-start justify-between flex-wrap gap-3 mb-3">
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xl font-bold text-white">Cosmic Whisker</h2>
+                <h2 className="text-xl font-bold text-white">{user?.displayName || user?.username}</h2>
                 <span className="text-[#4f9fff] text-sm" title="Verified">✓</span>
                 <span className="px-2 py-0.5 rounded-full border border-[#a78bfa]/25 bg-[#a78bfa]/10 text-[#a78bfa] text-[10px] font-semibold">Premium</span>
               </div>
-              <p className="text-[13px] text-white/40">@cosmic_whisker</p>
+              <p className="text-[13px] text-white/40">@{user?.username}</p>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#4f9fff] to-[#a78bfa] flex items-center justify-center text-sm">🐱</div>
               <div>
-                <p className="text-[13px] font-semibold text-white">Cosmo</p>
-                <p className="text-[11px] text-[#4f9fff]">🔍 Curious · Lv.14</p>
+                <p className="text-[13px] font-semibold text-white"> {clone?.name || "No Clone"}</p>
+                <p className="text-[11px] text-[#4f9fff]">🔍 {clone?.mood || "Unknown"} · Lv.{clone?.level || 1}</p>
               </div>
             </div>
           </div>
 
           {/* Bio */}
           <p className="text-[13px] text-white/55 leading-relaxed mb-4">
-            Building the future of AI identity. Cat person. Night owl. 🐱
+            {user?.bio || "No bio added yet"}
           </p>
 
           {/* Stats */}
           <div className="flex items-center gap-0 flex-wrap">
             {[
-              { label: "Followers", value: formatNumber(1284), color: "text-[#4f9fff]" },
-              { label: "Following", value: formatNumber(342), color: "text-white" },
-              { label: "Clowders", value: "7", color: "text-white" },
-              { label: "Clone Lv.", value: "14", color: "text-[#a78bfa]" },
-              { label: "Accuracy", value: "89%", color: "text-[#22d3ee]" },
-            ].map(({ label, value, color }, i, arr) => (
+  {
+    label: "Followers",
+    value: formatNumber(user?.followersCount || 0),
+    color: "text-[#4f9fff]",
+  },
+  {
+    label: "Following",
+    value: formatNumber(user?.followingCount || 0),
+    color: "text-white",
+  },
+  {
+    label: "Clowders",
+    value: String(user?.clowdersCount || 0),
+    color: "text-white",
+  },
+  {
+ label:"Clone Lv.",
+ value:String(clone?.level || 1),
+ color:"text-[#a78bfa]"
+},
+{
+ label:"Accuracy",
+ value:`${clone?.accuracyPercent || 0}%`,
+ color:"text-[#22d3ee]"
+},
+].map(({ label, value, color }, i, arr) => (
               <div key={label} className="flex items-center">
                 <div className="text-center px-4 py-1">
                   <p className={cn("text-[15px] font-bold", color)}>{value}</p>
@@ -174,20 +228,36 @@ export default function ProfilePage() {
             <div className="flex items-center gap-3 mb-4">
               <div className="w-12 h-12 rounded-full bg-gradient-to-br from-[#4f9fff] via-[#a78bfa] to-[#22d3ee] flex items-center justify-center text-xl shadow-[0_0_16px_rgba(79,159,255,0.3)]">🐱</div>
               <div>
-                <p className="text-[16px] font-bold text-white">Cosmo</p>
-                <p className="text-[12px] text-white/40">Level 14 · 72% trained · 247 sessions</p>
+                <p className="text-[16px] font-bold text-white">{clone?.name || "No Clone"}</p>
+                <p className="text-[12px] text-white/40">Level {clone?.level || 1} · 
+ {clone?.personalityProgress || 0}% trained · 
+ {clone?.trainingCount || 0} sessions</p>
               </div>
               <div className="ml-auto flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
-                <span className="text-[11px] text-emerald-400">Online</span>
+                <span className="text-[11px] text-emerald-400"> {clone?.isOnline ? "Online" : "Offline"}</span>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Personality", value: "72%", color: "#4f9fff" },
-                { label: "Intelligence", value: "68", color: "#a78bfa" },
-                { label: "Accuracy", value: "89%", color: "#22d3ee" },
-              ].map(({ label, value, color }) => (
+ 
+  {
+    label: "Personality",
+    value: `${clone?.personalityProgress || 0}%`,
+    color: "#4f9fff",
+  },
+  {
+    label: "Intelligence",
+    value: String(clone?.intelligenceScore || 0),
+    color: "#a78bfa",
+  },
+  {
+    label: "Accuracy",
+    value: `${clone?.accuracyPercent || 0}%`,
+    color: "#22d3ee",
+  },
+
+].map(({ label, value, color }) => (
                 <div key={label} className="text-center p-3 rounded-xl bg-white/[0.04] border border-white/[0.07]">
                   <p className="text-[18px] font-bold" style={{ color }}>{value}</p>
                   <p className="text-[10px] text-white/35 mt-0.5">{label}</p>

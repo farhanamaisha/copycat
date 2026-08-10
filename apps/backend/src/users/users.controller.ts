@@ -14,24 +14,25 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
 
+type RequestWithUser = {
+  user: {
+    userId: string;
+  };
+};
+
 @Controller('users')
 export class UsersController {
-
-  constructor(
-    private usersService: UsersService,
-  ) {}
+  constructor(private usersService: UsersService) {}
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  getMe(@Req() req) {
-    return this.usersService.findById(
-      req.user.userId,
-    );
+  getMe(@Req() req: RequestWithUser) {
+    return this.usersService.findById(req.user.userId);
   }
 
   @Get('suggested')
   @UseGuards(JwtAuthGuard)
-  getSuggested(@Req() req) {
+  getSuggested(@Req() req: RequestWithUser) {
     return this.usersService.getSuggestedUsers(req.user.userId);
   }
 
@@ -53,11 +54,13 @@ export class UsersController {
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   updateProfile(
-    @Req() req,
-    @Body() data: {
+    @Req() req: RequestWithUser,
+    @Body()
+    data: {
       displayName?: string;
       bio?: string;
       avatarUrl?: string;
+      username?: string;
     },
   ) {
     return this.usersService.updateProfile(req.user.userId, data);
@@ -65,7 +68,7 @@ export class UsersController {
 
   @Post(':userId/follow')
   @UseGuards(JwtAuthGuard)
-  follow(@Req() req, @Param('userId') targetUserId: string) {
+  follow(@Req() req: RequestWithUser, @Param('userId') targetUserId: string) {
     if (req.user.userId === targetUserId) {
       throw new BadRequestException('Cannot follow yourself');
     }
@@ -74,7 +77,7 @@ export class UsersController {
 
   @Delete(':userId/follow')
   @UseGuards(JwtAuthGuard)
-  unfollow(@Req() req, @Param('userId') targetUserId: string) {
+  unfollow(@Req() req: RequestWithUser, @Param('userId') targetUserId: string) {
     return this.usersService.toggleFollow(req.user.userId, targetUserId);
   }
 }

@@ -6,9 +6,9 @@ export class AppController {
   constructor(private readonly appService: AppService) {}
 
   @Get()
-getHello() {
-  return {
-    message: "Copy Cat API is running 🚀"
-  };
-}
+  getHello() {
+    return {
+      message: 'Copy Cat API is running 🚀',
+    };
+  }
 }

@@ -1,7 +1,7 @@
 // apps/frontend/app/(dashboard)/settings/page.tsx
 "use client";
-
-import { useState } from "react";
+import { updateProfile, getCurrentUser } from "@/services/api/user.api";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const TABS = ["Profile", "Clone", "Privacy", "Notifications", "Account"] as const;
@@ -17,6 +17,7 @@ export default function SettingsPage() {
     email: "cosmic@copycat.ai",
     website: "",
     location: "",
+    avatarUrl: "",
   });
   const [cloneSettings, setCloneSettings] = useState({
     cloneName: "Cosmo",
@@ -45,11 +46,47 @@ export default function SettingsPage() {
     emailDigest: false,
     pushEnabled: true,
   });
+  useEffect(() => {
+  async function loadUser() {
+    try {
+      const user = await getCurrentUser();
 
-  function handleSave() {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+      setProfile((prev) => ({
+        ...prev,
+        displayName: user.displayName || "",
+        username: user.username || "",
+        bio: user.bio || "",
+        email: user.email || "",
+        avatarUrl: user.avatarUrl || "",
+      }));
+
+    } catch (error) {
+      console.error("Failed to load user:", error);
+    }
   }
+
+  loadUser();
+}, []);
+
+  async function handleSave() {
+  try {
+    if (tab === "Profile") {
+      await updateProfile({
+        displayName: profile.displayName,
+        username: profile.username,
+        bio: profile.bio,
+        avatarUrl: profile.avatarUrl,
+      });
+    }
+
+    setSaved(true);
+
+    setTimeout(() => setSaved(false), 2000);
+
+  } catch (error) {
+    console.error("Failed to save profile:", error);
+  }
+}
 
   return (
     <div className="px-6 py-6 max-w-[800px] mx-auto">

@@ -31,6 +31,7 @@ export const useAuthStore = create<AuthState>()(
       setToken: (token) => {
         // Also set as cookie so middleware can read it
         document.cookie = `accessToken=${token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`;
+        localStorage.setItem("accessToken", token);
         set({ accessToken: token, isAuthenticated: true });
       },
 

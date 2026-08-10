@@ -26,15 +26,8 @@ import { AiService } from './ai/ai.service';
     MessagesModule,
   ],
 
-  controllers: [
-    AppController,
-    HealthController,
-    AiController,
-  ],
+  controllers: [AppController, HealthController, AiController],
 
-  providers: [
-    AppService,
-    AiService,
-  ],
+  providers: [AppService, AiService],
 })
 export class AppModule {}

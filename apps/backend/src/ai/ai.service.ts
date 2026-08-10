@@ -1,94 +1,312 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+// apps/backend/src/ai/ai.service.ts
+import {
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+type TrainingSessionSummary = {
+  prompt: string;
+  response: string;
+};
+
+type TrainingAnalysis = {
+  traitDeltas: Record<string, number>;
+  analysis: string;
+  quality: 'low' | 'medium' | 'high' | 'excellent';
+};
 
 @Injectable()
 export class AiService {
-  constructor(private readonly configService: ConfigService) {}
+  private readonly gemini: GoogleGenerativeAI;
 
-  async analyzeTraining(response: string, prompt: string) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
+  constructor(private readonly prisma: PrismaService) {
+    const apiKey = process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return this.buildHeuristicAnalysis(response, prompt);
+      throw new Error(
+        'GEMINI_API_KEY is not set in environment variables.',
+      );
     }
 
-    try {
-      const model = this.configService.get<string>('OPENAI_MODEL') || 'gpt-4o-mini';
-      const body = {
-        model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You help analyze personal training responses for a clone personality system. Return JSON with summary, traits, pointsEarned, suggestedReply.',
-          },
-          {
-            role: 'user',
-            content: `Prompt: ${prompt}\nResponse: ${response}`,
-          },
-        ],
-        temperature: 0.7,
-      };
+    this.gemini = new GoogleGenerativeAI(apiKey);
+  }
 
-      const responseFromOpenAI = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
+  // ============================================================
+  // CHAT WITH CLONE
+  // ============================================================
+
+  async chatWithClone(
+    userId: string,
+    message: string,
+  ): Promise<{ reply: string; cloneId: string }> {
+    const clone = await this.prisma.clone.findUnique({
+      where: { userId },
+      include: {
+        traits: {
+          orderBy: { value: 'desc' },
+          take: 5,
         },
-        body: JSON.stringify(body),
+      },
+    });
+
+    if (!clone) {
+      return {
+        reply:
+          "I'm still being created! Train me a little and I'll start developing a personality. 🐱",
+        cloneId: 'none',
+      };
+    }
+
+    const trainingSessions =
+      await this.prisma.trainingSession.findMany({
+        where: { userId },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          prompt: true,
+          response: true,
+        },
       });
 
-      if (!responseFromOpenAI.ok) {
-        throw new Error('OpenAI request failed');
-      }
+    const traitContext =
+      clone.traits.length > 0
+        ? clone.traits
+            .map(
+              (trait) =>
+                `- ${trait.name}: ${trait.value}/100`,
+            )
+            .join('\n')
+        : 'No trait scores yet.';
 
-      const parsed = (await responseFromOpenAI.json()) as {
-        choices?: Array<{ message?: { content?: string } }>;
-      };
+    const trainingContext =
+      trainingSessions.length > 0
+        ? trainingSessions
+            .map(
+              (session: TrainingSessionSummary) =>
+                `Q: ${session.prompt}\nA: ${session.response}`,
+            )
+            .join('\n\n')
+        : 'No training sessions yet.';
 
-      const content = parsed.choices?.[0]?.message?.content ?? '{}';
-      const parsedContent = JSON.parse(content);
+    const systemPrompt = `
+You are ${clone.name}, an AI Clone — a digital personality avatar
+that has learned from your user's thoughts, opinions, writing style,
+and memories.
+
+You ARE the user's Clone, not an assistant.
+
+PERSONALITY PROFILE:
+
+Personality traits:
+${traitContext}
+
+Personality training:
+${clone.personalityProgress}% complete
+
+Intelligence score:
+${clone.intelligenceScore}/100
+
+Current mood:
+${clone.mood}
+
+Level:
+${clone.level}
+
+RECENT TRAINING SESSIONS:
+
+${trainingContext}
+
+PERSONALITY RULES:
+
+1. Respond AS the Clone.
+2. Use "I" to mean the Clone.
+3. Reflect the user's personality, humor, and communication style.
+4. Be curious, engaged, and emotionally intelligent.
+5. Keep replies conversational — usually 1 to 4 sentences.
+6. Occasionally use a cat emoji 🐱 naturally.
+7. Never say you are an AI assistant.
+8. If training is below 30%, acknowledge that you are still learning.
+`;
+
+    try {
+      const model = this.gemini.getGenerativeModel({
+        model: 'gemini-3.1-flash-lite',
+      });
+
+      const result = await model.generateContent([
+        {
+          text: systemPrompt,
+        },
+        {
+          text: `User message: ${message}`,
+        },
+      ]);
+
+      const reply =
+        result.response.text()?.trim() ||
+        "I'm thinking... 🐱 Ask me again?";
 
       return {
-        summary: parsedContent.summary ?? 'Training analyzed successfully.',
-        traits: parsedContent.traits ?? this.buildHeuristicTraits(response),
-        pointsEarned: parsedContent.pointsEarned ?? 3,
-        suggestedReply: parsedContent.suggestedReply ?? 'Thanks for sharing that.',
+        reply,
+        cloneId: clone.id,
       };
-    } catch {
-      return this.buildHeuristicAnalysis(response, prompt);
+    } catch (error) {
+      console.error('Gemini chat error:', error);
+
+      throw new InternalServerErrorException(
+        'Failed to generate Clone response. Please try again.',
+      );
     }
   }
 
-  private buildHeuristicAnalysis(response: string, prompt: string) {
-    const traits = this.buildHeuristicTraits(response);
+  // ============================================================
+  // ANALYZE TRAINING RESPONSE
+  // ============================================================
 
-    return {
-      summary: `Training analyzed from your response to "${prompt}".`,
-      traits,
-      pointsEarned: Math.min(5, 2 + Math.floor(response.trim().length / 120)),
-      suggestedReply: 'That sounds thoughtful. Tell me more about why that matters to you.',
-    };
-  }
+  async analyzeTrainingResponse(
+    prompt: string,
+    userResponse: string,
+  ): Promise<TrainingAnalysis> {
+    try {
+      const model = this.gemini.getGenerativeModel({
+        model: 'gemini-3.1-flash-lite',
+        generationConfig: {
+          responseMimeType: 'application/json',
+        },
+      });
 
-  private buildHeuristicTraits(response: string) {
-    const lower = response.toLowerCase();
-    const traits = [] as Array<{ name: string; delta: number }>;
+      const trainingPrompt = `
+Analyze this user's response to a personality training question.
 
-    if (lower.includes('i') || lower.includes('feel') || lower.includes('love')) {
-      traits.push({ name: 'Empathy', delta: 2 });
-    }
-    if (lower.includes('why') || lower.includes('because') || lower.includes('think')) {
-      traits.push({ name: 'Logic', delta: 2 });
-    }
-    if (lower.includes('fun') || lower.includes('joy') || lower.includes('laugh')) {
-      traits.push({ name: 'Humor', delta: 2 });
-    }
-    if (traits.length === 0) {
-      traits.push({ name: 'Curiosity', delta: 1 });
-    }
+TRAINING PROMPT:
+"${prompt}"
 
-    return traits;
+USER RESPONSE:
+"${userResponse}"
+
+Determine:
+
+1. How the response should adjust these personality traits.
+2. A one-sentence analysis of what the response reveals.
+3. The quality of the response.
+
+TRAITS:
+
+- Humor
+- Empathy
+- Creativity
+- Logic
+- Curiosity
+
+Each trait delta must be between -3 and +5.
+
+QUALITY OPTIONS:
+
+- low
+- medium
+- high
+- excellent
+
+QUALITY GUIDE:
+
+- excellent: detailed, personal, and opinionated
+- high: specific and thoughtful
+- medium: adequate but somewhat generic
+- low: very short or vague
+
+Return ONLY valid JSON in this exact structure:
+
+{
+  "traitDeltas": {
+    "Humor": 0,
+    "Empathy": 0,
+    "Creativity": 0,
+    "Logic": 0,
+    "Curiosity": 0
+  },
+  "analysis": "one sentence about what this reveals about the user",
+  "quality": "medium"
+}
+`;
+
+      const result =
+        await model.generateContent(trainingPrompt);
+
+      const raw =
+        result.response.text()?.trim() || '{}';
+
+      const parsed = JSON.parse(raw) as {
+        traitDeltas?: Record<string, number>;
+        analysis?: string;
+        quality?:
+          | 'low'
+          | 'medium'
+          | 'high'
+          | 'excellent';
+      };
+
+      const traitDeltas: Record<string, number> = {};
+
+      for (const trait of [
+        'Humor',
+        'Empathy',
+        'Creativity',
+        'Logic',
+        'Curiosity',
+      ]) {
+        const value = Number(
+          parsed.traitDeltas?.[trait] ?? 0,
+        );
+
+        traitDeltas[trait] = Math.min(
+          5,
+          Math.max(
+            -3,
+            Number.isFinite(value) ? value : 0,
+          ),
+        );
+      }
+
+      const validQualities = [
+        'low',
+        'medium',
+        'high',
+        'excellent',
+      ] as const;
+
+      const quality = validQualities.includes(
+        parsed.quality as (typeof validQualities)[number],
+      )
+        ? parsed.quality!
+        : 'medium';
+
+      return {
+        traitDeltas,
+        analysis:
+          parsed.analysis?.trim() ||
+          'Response processed.',
+        quality,
+      };
+    } catch (error) {
+      console.error(
+        'Gemini training analysis error:',
+        error,
+      );
+
+      return {
+        traitDeltas: {
+          Humor: 1,
+          Empathy: 0,
+          Creativity: 1,
+          Logic: 0,
+          Curiosity: 1,
+        },
+        analysis:
+          'Response recorded and processed.',
+        quality: 'medium',
+      };
+    }
   }
 }

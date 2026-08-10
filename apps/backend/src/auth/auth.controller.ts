@@ -8,7 +8,6 @@ import {
   Param,
 } from '@nestjs/common';
 
-
 import { AuthService } from './auth.service';
 
 import { RegisterDto } from './dto/register.dto';
@@ -17,108 +16,63 @@ import { ResendVerificationDto } from './dto/resend-verification.dto';
 
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
-
+type RequestWithUser = {
+  user: {
+    userId: string;
+  };
+};
 
 @Controller('auth')
 export class AuthController {
-
-
-  constructor(
-    private authService: AuthService,
-  ) {}
-
-
+  constructor(private authService: AuthService) {}
 
   // =========================
   // REGISTER
   // =========================
 
   @Post('register')
-  register(
-    @Body() dto:RegisterDto,
-  ){
-
+  register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
-
   }
-
-
-
 
   // =========================
   // VERIFY EMAIL
   // =========================
 
   @Get('verify-email/:token')
-  verifyEmail(
-    @Param('token') token:string,
-  ){
-
+  verifyEmail(@Param('token') token: string) {
     return this.authService.verifyEmail(token);
-
   }
-
-
-
 
   // =========================
   // RESEND VERIFICATION
   // =========================
 
   @Post('resend-verification')
-  resendVerification(
-    @Body() dto:ResendVerificationDto,
-  ){
-
-    return this.authService.resendVerification(
-      dto.email,
-    );
-
+  resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerification(dto.email);
   }
-
-
-
-
 
   // =========================
   // LOGIN
   // =========================
 
   @Post('login')
-  login(
-    @Body() dto:LoginDto,
-  ){
-
+  login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
-
   }
-
-
-
-
 
   // =========================
   // PROFILE
   // =========================
 
   @UseGuards(JwtAuthGuard)
-
   @Get('profile')
-
-  profile(
-    @Request() req,
-  ){
-
+  profile(@Request() req: RequestWithUser) {
     return {
+      message: 'Protected route works',
 
-      message:
-      'Protected route works',
-
-      user:req.user,
-
+      user: req.user,
     };
-
   }
-
-
 }

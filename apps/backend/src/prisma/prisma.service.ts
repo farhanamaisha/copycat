@@ -5,8 +5,8 @@ import { PrismaPg } from '@prisma/adapter-pg';
 @Injectable()
 export class PrismaService
   extends PrismaClient
-  implements OnModuleInit, OnModuleDestroy {
-
+  implements OnModuleInit, OnModuleDestroy
+{
   constructor() {
     const adapter = new PrismaPg({
       connectionString: process.env.DIRECT_URL,
@@ -16,15 +16,9 @@ export class PrismaService
       adapter,
     });
 
-    console.log(
-      "DATABASE:",
-      process.env.DATABASE_URL?.split("@")[1]
-    );
+    console.log('DATABASE:', process.env.DATABASE_URL?.split('@')[1]);
 
-    console.log(
-      "DIRECT:",
-      process.env.DIRECT_URL?.split("@")[1]
-    );
+    console.log('DIRECT:', process.env.DIRECT_URL?.split('@')[1]);
   }
 
   async onModuleInit() {

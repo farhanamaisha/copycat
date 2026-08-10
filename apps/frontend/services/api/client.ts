@@ -1,5 +1,3 @@
-// apps/frontend/services/api/client.ts
-
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 
 if (!BASE_URL) {
@@ -10,6 +8,7 @@ async function parseResponse<T>(response: Response): Promise<T> {
   const text = await response.text();
 
   let json: unknown;
+
   try {
     json = JSON.parse(text);
   } catch {
@@ -20,12 +19,14 @@ async function parseResponse<T>(response: Response): Promise<T> {
 
   if (!response.ok) {
     const err = json as Record<string, unknown>;
+
     const msg =
       typeof err.message === "string"
         ? err.message
         : Array.isArray(err.message)
-        ? (err.message as string[]).join(", ")
-        : `Request failed with status ${response.status}`;
+          ? (err.message as string[]).join(", ")
+          : `Request failed with status ${response.status}`;
+
     throw new Error(msg);
   }
 
@@ -33,17 +34,27 @@ async function parseResponse<T>(response: Response): Promise<T> {
 }
 
 function getToken(): string | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined") {
+    return null;
+  }
+
   return localStorage.getItem("accessToken");
 }
 
-function buildHeaders(extra?: Record<string, string>): Record<string, string> {
+function buildHeaders(
+  extra?: Record<string, string>
+): Record<string, string> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...extra,
   };
+
   const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  if (token) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   return headers;
 }
 
@@ -53,6 +64,7 @@ export const apiClient = {
       method: "GET",
       headers: buildHeaders(),
     });
+
     return parseResponse<T>(response);
   },
 
@@ -62,6 +74,7 @@ export const apiClient = {
       headers: buildHeaders(),
       body: JSON.stringify(body),
     });
+
     return parseResponse<T>(response);
   },
 
@@ -71,6 +84,7 @@ export const apiClient = {
       headers: buildHeaders(),
       body: JSON.stringify(body),
     });
+
     return parseResponse<T>(response);
   },
 
@@ -80,6 +94,7 @@ export const apiClient = {
       headers: buildHeaders(),
       body: JSON.stringify(body),
     });
+
     return parseResponse<T>(response);
   },
 
@@ -88,6 +103,7 @@ export const apiClient = {
       method: "DELETE",
       headers: buildHeaders(),
     });
+
     return parseResponse<T>(response);
   },
 };

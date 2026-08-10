@@ -51,7 +51,14 @@ export async function getCloneByUserId(userId: string): Promise<Clone> {
 
 export async function chatWithClone(data: {
   message: string;
-  cloneId?: string;
-}): Promise<{ reply: string; cloneId: string }> {
+}): Promise<{ reply: string }> {
   return apiClient.post("/clones/chat", data);
+}
+export async function getChatHistory(): Promise<
+  {
+    from: "user" | "clone";
+    text: string;
+  }[]
+> {
+  return apiClient.get("/clones/chat/history");
 }

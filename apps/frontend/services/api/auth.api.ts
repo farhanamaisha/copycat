@@ -43,7 +43,11 @@ export async function refreshToken(): Promise<{ accessToken: string }> {
 export async function verifyEmail(
   token: string,
 ): Promise<ApiMessageResponse> {
-  return apiClient.post<ApiMessageResponse>("/auth/verify-email", { token });
+  return apiClient.get<ApiMessageResponse>(`/auth/verify-email/${token}`);
+}
+
+export async function resendVerification(email: string): Promise<ApiMessageResponse> {
+  return apiClient.post<ApiMessageResponse>("/auth/resend-verification", { email });
 }
 
 export async function forgotPassword(

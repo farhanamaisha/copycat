@@ -8,6 +8,7 @@ export async function getCurrentUser(): Promise<User> {
 
 export async function updateProfile(data: {
   displayName?: string;
+   username?: string;
   bio?: string;
   avatarUrl?: string;
 }): Promise<User> {

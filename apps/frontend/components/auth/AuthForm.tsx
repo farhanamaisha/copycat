@@ -7,6 +7,7 @@ import { useState, type FormEvent, type ChangeEvent } from "react";
 import { AuthInput } from "../ui/AuthInput";
 import { SocialButton } from "../ui/SocialButton";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/store";
 export type AuthMode = "sign-in" | "create-account";
 
 interface FormValues {
@@ -39,8 +40,8 @@ export function AuthForm({ initialMode = "sign-in" }: { initialMode?: AuthMode }
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const router = useRouter();
+  const setToken = useAuthStore((state) => state.setToken);
   const isSignUp = mode === "create-account";
 
   function switchMode(next: AuthMode) {
@@ -48,7 +49,6 @@ export function AuthForm({ initialMode = "sign-in" }: { initialMode?: AuthMode }
     setMode(next);
     setValues(initialValues);
     setErrors({});
-    setSubmitted(false);
   }
 
   function handleChange(field: keyof FormValues, value: string) {
@@ -104,11 +104,14 @@ export function AuthForm({ initialMode = "sign-in" }: { initialMode?: AuthMode }
 
     if (isSignUp) {
 
-      result = await registerUser({
+      await registerUser({
         username: values.username,
         email: values.email,
         password: values.password,
       });
+
+      router.push(`/verify-sent?email=${encodeURIComponent(values.email)}`);
+      return;
 
     } else {
 
@@ -118,12 +121,9 @@ export function AuthForm({ initialMode = "sign-in" }: { initialMode?: AuthMode }
 });
 
 if (response.accessToken) {
-  localStorage.setItem(
-    "accessToken",
-    response.accessToken
-  );
+  setToken(response.accessToken);
 
-  router.push("/dashboard");
+  window.location.href = "/dashboard";
 
   return;
 }
@@ -133,13 +133,6 @@ setErrors({
 });
 
     }
-
-
-    if (isSignUp) {
-  setSubmitted(true);
-}
-
-
   } catch (error) {
 
     console.error(error);
@@ -206,10 +199,7 @@ setErrors({
           </p>
         </div>
 
-        {submitted ? (
-          <SuccessMessage mode={mode} onReset={() => setSubmitted(false)} />
-        ) : (
-          <>
+        <>
             <div className="mb-6 flex flex-col gap-3 sm:flex-row">
               <SocialButton provider="google" />
               <SocialButton provider="github" />
@@ -347,8 +337,7 @@ setErrors({
                 </>
               )}
             </p>
-          </>
-        )}
+        </>
       </div>
     </div>
   );
@@ -453,33 +442,3 @@ function Spinner() {
   );
 }
 
-function SuccessMessage({
-  mode,
-  onReset,
-}: {
-  mode: AuthMode;
-  onReset: () => void;
-}) {
-  return (
-    <div className="rounded-2xl border border-[#4f9fff]/20 bg-[#4f9fff]/[0.06] p-8 text-center">
-      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#4f9fff]/10 text-2xl">
-        🐱
-      </div>
-      <h3 className="mb-2 text-lg font-bold text-white">
-        {mode === "create-account" ? "Clone created!" : "Welcome back!"}
-      </h3>
-      <p className="mb-6 text-sm text-white/50">
-        {mode === "create-account"
-          ? "Your account has been created successfully."
-          : "You are now signed in successfully."}
-      </p>
-      <button
-        type="button"
-        onClick={onReset}
-        className="text-sm font-medium text-[#4f9fff] hover:text-[#7cb4ff] transition-colors"
-      >
-        ← Back to form
-      </button>
-    </div>
-  );
-}

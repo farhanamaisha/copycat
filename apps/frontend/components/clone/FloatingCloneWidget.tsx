@@ -1,6 +1,7 @@
 // apps/frontend/components/clone/FloatingCloneWidget.tsx
-"use client";
 
+"use client";
+import { chatWithClone, getChatHistory } from "@/services/api/clone.api";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { CLONE_MOODS } from "@/constants";
@@ -13,6 +14,47 @@ export function FloatingCloneWidget() {
   const [isPulsing, setIsPulsing] = useState(false);
   const thoughtRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const moodConfig = CLONE_MOODS[clone.mood];
+  const [message, setMessage] = useState("");
+const [messages, setMessages] = useState<
+  { from: "clone" | "user"; text: string }[]
+>([]);
+const [sending, setSending] = useState(false);
+async function handleSend() {
+  if (!message.trim()) return;
+
+  const userMessage = message;
+
+  setMessages((prev) => [
+    ...prev,
+    {
+      from: "user",
+      text: userMessage,
+    },
+  ]);
+
+  setMessage("");
+  setSending(true);
+
+  try {
+    const response = await chatWithClone({
+      message: userMessage,
+      
+    });
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        from: "clone",
+        text: response.reply,
+      },
+    ]);
+
+  } catch (error) {
+    console.error("Chat failed:", error);
+  } finally {
+    setSending(false);
+  }
+}
 
   // Show a thought bubble periodically when collapsed
   useEffect(() => {
@@ -32,6 +74,21 @@ export function FloatingCloneWidget() {
       if (thoughtRef.current) clearTimeout(thoughtRef.current);
     };
   }, [isOpen]);
+  useEffect(() => {
+  async function loadChat() {
+    try {
+      const history = await getChatHistory();
+      setMessages(history);
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
+  if(isOpen){
+    loadChat();
+  }
+
+}, [isOpen]);
 
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
@@ -78,27 +135,60 @@ export function FloatingCloneWidget() {
 
           {/* Chat messages */}
           <div className="h-[200px] overflow-y-auto p-4 space-y-3 scrollbar-thin">
-            <ChatMessage
-              from="clone"
-              name={clone.name}
-              message="Hey! I'm here whenever you need me. I've been thinking about our last conversation..."
-            />
-            <ChatMessage
-              from="clone"
-              name={clone.name}
-              message={currentThought}
-            />
+            {messages.length === 0 && (
+    <>
+      <ChatMessage
+        from="clone"
+        name={clone.name}
+        message="Hey! I'm here whenever you need me. I've been thinking about our last conversation..."
+      />
+
+      <ChatMessage
+        from="clone"
+        name={clone.name}
+        message={currentThought}
+      />
+    </>
+  )}
+
+  {messages.map((msg, index) => (
+    <ChatMessage
+      key={index}
+      from={msg.from}
+      name={msg.from === "clone" ? clone.name : "You"}
+      message={msg.text}
+    />
+  ))}
+
+  {sending && (
+    <ChatMessage
+      from="clone"
+      name={clone.name}
+      message="Thinking..."
+    />
+  )}
           </div>
 
           {/* Input */}
           <div className="p-3 border-t border-white/[0.07]">
             <div className="flex items-center gap-2 rounded-[10px] border border-white/[0.1] bg-white/[0.04] px-3 py-2">
               <input
-                type="text"
-                placeholder={`Talk to ${clone.name}...`}
-                className="flex-1 bg-transparent text-[13px] text-white placeholder:text-white/25 outline-none"
-              />
-              <button className="shrink-0 p-1 rounded-md bg-[#4f9fff]/20 text-[#4f9fff] hover:bg-[#4f9fff]/30 transition-colors">
+  value={message}
+  onChange={(e) => setMessage(e.target.value)}
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      handleSend();
+    }
+  }}
+  type="text"
+  placeholder={`Talk to ${clone.name}...`}
+  className="flex-1 bg-transparent text-[13px] text-white placeholder:text-white/25 outline-none"
+/>
+              <button
+  onClick={handleSend}
+  disabled={sending}
+  className="shrink-0 p-1 rounded-md bg-[#4f9fff]/20 text-[#4f9fff] hover:bg-[#4f9fff]/30 transition-colors"
+>
                 <Icons.ChevronRight size={14} />
               </button>
             </div>

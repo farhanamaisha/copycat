@@ -11,33 +11,20 @@ import { PrismaService } from '../prisma/prisma.service';
 import { MailModule } from '../mail/mail.module';
 
 @Module({
-
   imports: [
-
     PassportModule,
-     MailModule,
+    MailModule,
     JwtModule.register({
-      secret:
-        process.env.JWT_SECRET || 'copy-cat-secret',
+      secret: process.env.JWT_SECRET || 'copy-cat-secret',
 
       signOptions: {
         expiresIn: '7d',
       },
     }),
-
   ],
 
+  controllers: [AuthController],
 
-  controllers: [
-    AuthController,
-  ],
-
-
-  providers: [
-    AuthService,
-    JwtStrategy,
-    PrismaService,
-  ],
-
+  providers: [AuthService, JwtStrategy, PrismaService],
 })
 export class AuthModule {}

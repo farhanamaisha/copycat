@@ -35,47 +35,47 @@ export function AuthProvider({
 
 
   useEffect(() => {
+  async function loadUser() {
+    const token = localStorage.getItem("accessToken");
 
-    async function loadUser() {
-
-      const token =
-        localStorage.getItem("accessToken");
-
-
-      if (!token) {
-        setLoading(false);
-        return;
-      }
-
-
-      try {
-
-        const data =
-          await getCurrentUser();
-
-
-        setUser(data);
-
-
-      } catch (error) {
-
-        console.error(error);
-
-        localStorage.removeItem("accessToken");
-
-      }
-      finally {
-
-        setLoading(false);
-
-      }
-
+    if (!token) {
+      setUser(null);
+      setLoading(false);
+      return;
     }
 
+    try {
+      const data = await getCurrentUser();
+      setUser(data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
 
+      if (
+        message.includes("401") ||
+        message.toLowerCase().includes("unauthorized")
+      ) {
+        localStorage.removeItem("accessToken");
+        setUser(null);
+      } else {
+        console.error(error);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  loadUser();
+
+  const handleStorage = () => {
     loadUser();
+  };
 
-  }, []);
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener("storage", handleStorage);
+  };
+}, []);
 
 
   return (

@@ -17,12 +17,9 @@ import * as crypto from 'crypto';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
-
 @Injectable()
 export class AuthService {
-
   private readonly logger = new Logger(AuthService.name);
-
 
   constructor(
     private prisma: PrismaService,
@@ -30,82 +27,52 @@ export class AuthService {
     private mailService: MailService,
   ) {}
 
-
   // =====================================
   // REGISTER
   // =====================================
 
   async register(dto: RegisterDto) {
-
     /*
       1. Check verified email
     */
 
-    const existingUserByEmail =
-      await this.prisma.user.findUnique({
-        where:{
-          email:dto.email,
-        },
-      });
+    const existingUserByEmail = await this.prisma.user.findUnique({
+      where: {
+        email: dto.email,
+      },
+    });
 
-
-    if(existingUserByEmail){
-
-      throw new ConflictException(
-        'An account with this email already exists.',
-      );
-
+    if (existingUserByEmail) {
+      throw new ConflictException('An account with this email already exists.');
     }
-
-
 
     /*
       2. Check verified username
     */
 
-    const existingUsername =
-      await this.prisma.user.findUnique({
-        where:{
-          username:dto.username,
-        },
-      });
+    const existingUsername = await this.prisma.user.findUnique({
+      where: {
+        username: dto.username,
+      },
+    });
 
-
-    if(existingUsername){
-
-      throw new ConflictException(
-        'Username already taken.',
-      );
-
+    if (existingUsername) {
+      throw new ConflictException('Username already taken.');
     }
-
-
 
     /*
       3. Check pending registration
     */
 
-    const pendingUser =
-      await this.prisma.pendingUser.findUnique({
-        where:{
-          email:dto.email,
-        },
-      });
+    const pendingUser = await this.prisma.pendingUser.findUnique({
+      where: {
+        email: dto.email,
+      },
+    });
 
+    const token = this.generateVerificationToken();
 
-
-    const token =
-      this.generateVerificationToken();
-
-
-
-    const expiresAt =
-      new Date(
-        Date.now() + 
-        1000 * 60 * 60 * 24
-      );
-
-
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
     /*
       Existing pending account
@@ -113,397 +80,213 @@ export class AuthService {
       regenerate verification
     */
 
-    if(pendingUser){
+    if (pendingUser) {
+      const updatedPending = await this.prisma.pendingUser.update({
+        where: {
+          id: pendingUser.id,
+        },
 
+        data: {
+          username: dto.username,
 
-      const updatedPending =
-        await this.prisma.pendingUser.update({
+          token,
 
-          where:{
-            id:pendingUser.id,
-          },
+          expiresAt,
+        },
+      });
 
-          data:{
-
-            username:dto.username,
-
-            token,
-
-            expiresAt,
-
-          },
-
-        });
-
-
-
-      try{
-
+      try {
         await this.mailService.sendVerificationEmail(
           updatedPending.email,
           updatedPending.token,
         );
+      } catch (error) {
+        console.error('EMAIL SEND ERROR:', error);
 
-
-      }catch(error){
-
-  console.error("EMAIL SEND ERROR:", error);
-
-  throw new ServiceUnavailableException(
-    'Your registration was created but verification email could not be sent.',
-  );
-
-}
-
-
+        throw new ServiceUnavailableException(
+          'Your registration was created but verification email could not be sent.',
+        );
+      }
 
       return {
-
-        message:
-        'A verification email has been sent. Please check your inbox.',
-
+        message: 'A verification email has been sent. Please check your inbox.',
       };
-
     }
-
-
-
 
     /*
       New registration
     */
 
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
 
-    const hashedPassword =
-      await bcrypt.hash(
-        dto.password,
-        10,
-      );
+    const pending = await this.prisma.pendingUser.create({
+      data: {
+        username: dto.username,
 
+        email: dto.email,
 
+        password: hashedPassword,
 
-    const pending =
-      await this.prisma.pendingUser.create({
+        token,
 
-        data:{
+        expiresAt,
+      },
+    });
 
-          username:dto.username,
-
-          email:dto.email,
-
-          password:hashedPassword,
-
-          token,
-
-          expiresAt,
-
-        },
-
-      });
-
-
-
-    try{
-
-
+    try {
       await this.mailService.sendVerificationEmail(
         pending.email,
         pending.token,
       );
-
-
-    }catch(error){
-
-
-      this.logger.error(
-        'Verification email failed',
-        error,
-      );
-
+    } catch (error) {
+      this.logger.error('Verification email failed', error);
 
       throw new ServiceUnavailableException(
         'Your registration was created but verification email could not be sent. Please try again later.',
       );
-
     }
 
-
-
     return {
-
-      message:
-      'A verification email has been sent. Please check your inbox.',
-
+      message: 'A verification email has been sent. Please check your inbox.',
     };
-
   }
-
-
-
-
 
   // =====================================
   // VERIFY EMAIL
   // =====================================
 
-  async verifyEmail(token:string){
+  async verifyEmail(token: string) {
+    const pending = await this.prisma.pendingUser.findUnique({
+      where: {
+        token,
+      },
+    });
 
-
-    const pending =
-      await this.prisma.pendingUser.findUnique({
-
-        where:{
-          token,
-        },
-
-      });
-
-
-
-    if(!pending){
-
-      throw new BadRequestException(
-        'Invalid verification token.',
-      );
-
+    if (!pending) {
+      throw new BadRequestException('Invalid verification token.');
     }
 
-
-
-    if(
-      pending.expiresAt < new Date()
-    ){
-
+    if (pending.expiresAt < new Date()) {
       throw new BadRequestException(
         'Verification token expired. Please request a new verification email.',
       );
-
     }
 
+    await this.prisma.$transaction(async (tx) => {
+      const newUser = await tx.user.create({
+        data: {
+          username: pending.username,
 
+          email: pending.email,
 
+          password: pending.password,
 
-    let newUser;
-    await this.prisma.$transaction(
-      async(tx)=>{
+          emailVerified: true,
+          isVerified: false,
+        },
+      });
 
-
-        newUser = await tx.user.create({
-
-          data:{
-
-            username:
-            pending.username,
-
-            email:
-            pending.email,
-
-            password:
-            pending.password,
-
-            emailVerified:true,
-            isVerified: false,
-
+      // Create default Clone for the user
+      await tx.clone.create({
+        data: {
+          userId: newUser.id,
+          name: pending.username + "'s Clone",
+          traits: {
+            create: [
+              { name: 'Humor', value: 50 },
+              { name: 'Empathy', value: 50 },
+              { name: 'Creativity', value: 50 },
+              { name: 'Logic', value: 50 },
+              { name: 'Curiosity', value: 50 },
+            ],
           },
+        },
+      });
 
-        });
-
-        // Create default Clone for the user
-        await tx.clone.create({
-          data: {
-            userId: newUser.id,
-            name: pending.username + "'s Clone",
-            traits: {
-              create: [
-                { name: 'Humor', value: 50 },
-                { name: 'Empathy', value: 50 },
-                { name: 'Creativity', value: 50 },
-                { name: 'Logic', value: 50 },
-                { name: 'Curiosity', value: 50 },
-              ],
-            },
-          },
-        });
-
-        await tx.pendingUser.delete({
-
-          where:{
-            id:pending.id,
-          },
-
-        });
-
-
-      },
-    );
-
-
-
+      await tx.pendingUser.delete({
+        where: {
+          id: pending.id,
+        },
+      });
+    });
 
     return {
-
-      message:
-      'Email verified. Account created successfully.',
-
+      message: 'Email verified. Account created successfully.',
     };
-
-
   }
-
-
-
 
   // =====================================
   // RESEND VERIFICATION
   // =====================================
 
-  async resendVerification(email:string){
+  async resendVerification(email: string) {
+    const pending = await this.prisma.pendingUser.findUnique({
+      where: {
+        email,
+      },
+    });
 
-
-    const pending =
-      await this.prisma.pendingUser.findUnique({
-
-        where:{
-          email,
-        },
-
-      });
-
-
-
-    if(!pending){
-
+    if (!pending) {
       return {
-
         message:
-        'If an account is waiting for verification, a new email has been sent.',
-
+          'If an account is waiting for verification, a new email has been sent.',
       };
-
     }
 
+    const token = this.generateVerificationToken();
 
+    const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
 
+    const updated = await this.prisma.pendingUser.update({
+      where: {
+        id: pending.id,
+      },
 
-    const token =
-      this.generateVerificationToken();
+      data: {
+        token,
 
+        expiresAt,
+      },
+    });
 
-
-    const expiresAt =
-      new Date(
-        Date.now() +
-        1000 * 60 * 60 * 24
-      );
-
-
-
-
-    const updated =
-      await this.prisma.pendingUser.update({
-
-        where:{
-          id:pending.id,
-        },
-
-        data:{
-
-          token,
-
-          expiresAt,
-
-        },
-
-      });
-
-
-
-
-    try{
-
+    try {
       await this.mailService.sendVerificationEmail(
         updated.email,
         updated.token,
       );
-
-
-    }catch(error){
-
-
-      this.logger.error(
-        'Verification resend failed',
-        error,
-      );
-
+    } catch (error) {
+      this.logger.error('Verification resend failed', error);
 
       throw new ServiceUnavailableException(
         'Unable to send verification email. Please try again later.',
       );
-
-
     }
 
-
-
     return {
-
-      message:
-      'A verification email has been sent. Please check your inbox.',
-
+      message: 'A verification email has been sent. Please check your inbox.',
     };
-
-
   }
-
-
-
-
 
   // =====================================
   // LOGIN
   // =====================================
 
-  async login(dto:LoginDto){
+  async login(dto: LoginDto) {
+    const user = await this.prisma.user.findUnique({
+      where: {
+        email: dto.email,
+      },
+    });
 
-
-    const user =
-      await this.prisma.user.findUnique({
-
-        where:{
-          email:dto.email,
-        },
-
-      });
-
-
-
-    if(!user){
-
-      throw new UnauthorizedException(
-        'Invalid credentials',
-      );
-
+    if (!user) {
+      throw new UnauthorizedException('Invalid credentials');
     }
 
+    const match = await bcrypt.compare(dto.password, user.password);
 
-
-    const match =
-      await bcrypt.compare(
-        dto.password,
-        user.password,
-      );
-
-
-
-    if(!match){
-
-      throw new UnauthorizedException(
-        'Invalid credentials',
-      );
-
+    if (!match) {
+      throw new UnauthorizedException('Invalid credentials');
     }
-
-
 
     return this.createToken(
       user.id,
@@ -512,51 +295,34 @@ export class AuthService {
       user.displayName,
       user.avatarUrl,
     );
-
   }
-
-
-
-
 
   // =====================================
   // TOKEN GENERATOR
   // =====================================
 
-  private generateVerificationToken(){
-
-    return crypto
-      .randomBytes(32)
-      .toString('hex');
-
+  private generateVerificationToken() {
+    return crypto.randomBytes(32).toString('hex');
   }
-
-
-
 
   // =====================================
   // JWT
   // =====================================
 
   private createToken(
-    id:string,
-    email:string,
-    username:string,
+    id: string,
+    email: string,
+    username: string,
     displayName: string | null,
     avatarUrl: string | null,
-  ){
-
+  ) {
     return {
+      accessToken: this.jwtService.sign({
+        sub: id,
 
-      accessToken:
-        this.jwtService.sign({
-
-          sub:id,
-
-          email,
-          username,
-
-        }),
+        email,
+        username,
+      }),
 
       user: {
         id,
@@ -565,10 +331,6 @@ export class AuthService {
         displayName: displayName || username,
         avatarUrl: avatarUrl || null,
       },
-
     };
-
   }
-
-
 }

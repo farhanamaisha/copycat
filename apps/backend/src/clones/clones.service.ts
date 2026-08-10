@@ -80,7 +80,86 @@ export class ClonesService {
 
     return { traitName, newValue };
   }
+    async chatWithClone(userId: string, message: string) {
+  const clone = await this.prisma.clone.findUnique({
+    where: { userId },
+  });
 
+  if (!clone) {
+    throw new NotFoundException("Clone not found");
+  }
+
+
+  // Find existing conversation
+  let conversation = await this.prisma.chatConversation.findFirst({
+    where: {
+      userId,
+      cloneId: clone.id,
+    },
+  });
+
+
+  // Create conversation first time
+  if (!conversation) {
+    conversation = await this.prisma.chatConversation.create({
+      data: {
+        userId,
+        cloneId: clone.id,
+        title: "Clone Chat",
+      },
+    });
+  }
+
+
+  // Save user message
+  await this.prisma.chatMessage.create({
+    data: {
+      conversationId: conversation.id,
+      role: "USER",
+      content: message,
+    },
+  });
+
+
+
+  // Temporary clone brain
+  let reply = "";
+
+  const text = message.toLowerCase();
+
+  if (text.includes("name")) {
+    reply = `My name is ${clone.name}. I am your digital clone.`;
+  } 
+  else if (
+    text.includes("hi") ||
+    text.includes("hello")
+  ) {
+    reply = `Hey! Good to see you again. I'm feeling ${clone.mood} today.`;
+  }
+  else if (text.includes("how are you")) {
+    reply = "I'm doing great. I'm learning from our conversations.";
+  }
+  else {
+    reply = `That's interesting. Tell me more about ${message}.`;
+  }
+
+
+
+  // Save clone reply
+  await this.prisma.chatMessage.create({
+    data: {
+      conversationId: conversation.id,
+      role: "CLONE",
+      content: reply,
+    },
+  });
+
+
+  return {
+    reply,
+    cloneId: clone.id,
+  };
+}
   private formatClone(clone: any) {
     return {
       id: clone.id,
@@ -104,4 +183,42 @@ export class ClonesService {
       updatedAt: clone.updatedAt,
     };
   }
+  async getChatHistory(userId: string) {
+  const clone = await this.prisma.clone.findUnique({
+    where: { userId },
+  });
+
+  if (!clone) {
+    throw new NotFoundException("Clone not found");
+  }
+
+  const conversation =
+    await this.prisma.chatConversation.findFirst({
+      where: {
+        userId,
+        cloneId: clone.id,
+      },
+      include: {
+        messages: {
+          orderBy: {
+            createdAt: "asc",
+          },
+        },
+      },
+    });
+
+
+  if (!conversation) {
+    return [];
+  }
+
+
+  return conversation.messages.map((msg) => ({
+    from:
+      msg.role === "USER"
+        ? "user"
+        : "clone",
+    text: msg.content,
+  }));
+}
 }

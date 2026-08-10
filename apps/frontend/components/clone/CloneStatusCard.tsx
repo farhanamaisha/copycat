@@ -107,7 +107,7 @@ export function CloneStatusCard() {
         <p className="text-[11px] font-semibold uppercase tracking-wide text-white/25">
           Recent Activity
         </p>
-        {clone.recentActivity.map((act) => (
+        {(clone.recentActivity ?? []).map((act) => (
           <div key={act.id} className="flex items-start gap-2">
             <span className="mt-0.5 text-[13px]">
               {act.type === "learned"

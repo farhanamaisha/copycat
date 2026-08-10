@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
@@ -186,7 +190,7 @@ export class PostsService {
     }
 
     if (post.authorId !== userId) {
-      throw new BadRequestException('Cannot delete another user\'s post');
+      throw new BadRequestException("Cannot delete another user's post");
     }
 
     await this.prisma.post.delete({

@@ -3,9 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class UsersService {
-  constructor(
-    private prisma: PrismaService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async findById(id: string) {
     const user = await this.prisma.user.findUnique({
@@ -67,11 +65,14 @@ export class UsersService {
     };
   }
 
-  async updateProfile(userId: string, data: {
-    displayName?: string;
-    bio?: string;
-    avatarUrl?: string;
-  }) {
+  async updateProfile(
+    userId: string,
+    data: {
+      displayName?: string;
+      bio?: string;
+      avatarUrl?: string;
+    },
+  ) {
     const user = await this.prisma.user.update({
       where: { id: userId },
       data: {

@@ -18,8 +18,8 @@ model User {
   avatarUrl   String?
 
   emailVerified Boolean @default(false)
-  isVerified   Boolean @default(false)
-  isPremium    Boolean @default(false)
+  isVerified    Boolean @default(false)
+  isPremium     Boolean @default(false)
 
   twoFactorEnabled Boolean @default(false)
   twoFactorSecret  String?
@@ -34,8 +34,8 @@ model User {
   posts          Post[]
   comments       Comment[]
   reactions      Reaction[]
-  followers      Follow[] @relation("following")
-  following      Follow[] @relation("follower")
+  followers      Follow[]        @relation("following")
+  following      Follow[]        @relation("follower")
   clowderMembers ClowderMember[]
 
   // Messages
@@ -45,68 +45,73 @@ model User {
   // Training data
   trainingSessions TrainingSession[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  chatConversations     ChatConversation[]
+  sentNotifications     Notification[]     @relation("notification_actor")
+  receivedNotifications Notification[]     @relation("notification_receiver")
 }
 
 model Clone {
-  id   String @id @default(cuid())
-  user User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String @unique
 
-  name               String
-  avatarUrl          String?
-  personalityProgress Int @default(0)
-  intelligenceScore   Int @default(0)
-  level              Int @default(1)
-  accuracyPercent    Int @default(0)
-  mood               String @default("curious")
-  isOnline           Boolean @default(false)
-  trainingCount      Int @default(0)
+  name                String
+  avatarUrl           String?
+  personalityProgress Int     @default(0)
+  intelligenceScore   Int     @default(0)
+  level               Int     @default(1)
+  accuracyPercent     Int     @default(0)
+  mood                String  @default("curious")
+  isOnline            Boolean @default(false)
+  trainingCount       Int     @default(0)
 
   traits TraitScore[]
 
-  lastActive DateTime?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  lastActive    DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  conversations ChatConversation[]
+  memories      CloneMemory[]
 }
 
 model TraitScore {
-  id    String @id @default(cuid())
-  clone Clone  @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+  id      String @id @default(cuid())
+  clone   Clone  @relation(fields: [cloneId], references: [id], onDelete: Cascade)
   cloneId String
 
   name  String
-  value Int @default(0)
+  value Int    @default(0)
 
   @@unique([cloneId, name])
 }
 
 model Post {
-  id      String @id @default(cuid())
-  author  User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId String
 
   content String
   tags    String[] @default([])
 
-  likes   Reaction[] @relation("post_likes")
+  likes    Reaction[] @relation("post_likes")
   comments Comment[]
 
-  isLiked      Boolean @default(false)
-  likesCount   Int @default(0)
-  isBookmarked Boolean @default(false)
-  isReposted   Boolean @default(false)
-  repostsCount Int @default(0)
-  commentsCount Int @default(0)
+  isLiked       Boolean @default(false)
+  likesCount    Int     @default(0)
+  isBookmarked  Boolean @default(false)
+  isReposted    Boolean @default(false)
+  repostsCount  Int     @default(0)
+  commentsCount Int     @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model Comment {
-  id      String @id @default(cuid())
-  author  User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  id       String @id @default(cuid())
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
   authorId String
 
   post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
@@ -148,11 +153,11 @@ model Follow {
 }
 
 model Clowder {
-  id   String @id @default(cuid())
-  name String
-  slug String @unique
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
   description String?
-  avatarUrl String?
+  avatarUrl   String?
 
   members ClowderMember[]
 
@@ -175,7 +180,7 @@ model ClowderMember {
 }
 
 model Message {
-  id   String @id @default(cuid())
+  id String @id @default(cuid())
 
   sender   User   @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
   senderId String
@@ -191,17 +196,17 @@ model Message {
 }
 
 model TrainingSession {
-  id   String @id @default(cuid())
+  id String @id @default(cuid())
 
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
   userId String
 
-  prompt String
+  prompt   String
   response String
   analysis String? // JSON or summary of analysis
 
   traitsImproved TraitImprovement[]
-  pointsEarned   Int @default(0)
+  pointsEarned   Int                @default(0)
 
   createdAt DateTime @default(now())
 }
@@ -253,14 +258,15 @@ model Session {
   expiresAt DateTime
   createdAt DateTime @default(now())
 }
+
 model PendingUser {
   id String @id @default(cuid())
 
   username String
-  email String @unique
+  email    String @unique
   password String
 
-  token String @unique
+  token     String   @unique
   expiresAt DateTime
 
   createdAt DateTime @default(now())
@@ -268,4 +274,95 @@ model PendingUser {
 
   @@index([email])
   @@index([token])
+}
+
+model ChatConversation {
+  id String @id @default(cuid())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  clone   Clone  @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+  cloneId String
+
+  title String?
+
+  messages ChatMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([cloneId])
+}
+
+model ChatMessage {
+  id String @id @default(cuid())
+
+  conversation   ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversationId String
+
+  role    MessageRole
+  content String
+
+  model      String?
+  tokensUsed Int?
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+}
+
+model CloneMemory {
+  id String @id @default(cuid())
+
+  clone   Clone  @relation(fields: [cloneId], references: [id], onDelete: Cascade)
+  cloneId String
+
+  memory String
+
+  importance Int @default(1)
+
+  createdAt DateTime @default(now())
+
+  @@index([cloneId])
+}
+
+enum MessageRole {
+  USER
+  CLONE
+  SYSTEM
+}
+
+model Notification {
+  id String @id @default(cuid())
+
+  user   User   @relation("notification_receiver", fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+
+  actor   User?   @relation("notification_actor", fields: [actorId], references: [id])
+  actorId String?
+
+  type NotificationType
+
+  title   String
+  message String
+
+  isRead Boolean @default(false)
+
+  referenceId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead, createdAt])
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  FOLLOW
+  MESSAGE
+  CLONE_UPDATE
+  TRAINING_COMPLETE
+  SYSTEM
 }
