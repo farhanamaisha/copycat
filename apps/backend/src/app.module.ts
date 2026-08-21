@@ -9,8 +9,7 @@ import { ClonesModule } from './clones/clones.module';
 import { PostsModule } from './posts/posts.module';
 import { MessagesModule } from './messages/messages.module';
 import { HealthController } from './health/health.controller';
-import { AiController } from './ai/ai.controller';
-import { AiService } from './ai/ai.service';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -24,10 +23,16 @@ import { AiService } from './ai/ai.service';
     ClonesModule,
     PostsModule,
     MessagesModule,
+    AiModule,
   ],
 
-  controllers: [AppController, HealthController, AiController],
+  controllers: [
+    AppController,
+    HealthController,
+  ],
 
-  providers: [AppService, AiService],
+  providers: [
+    AppService,
+  ],
 })
 export class AppModule {}

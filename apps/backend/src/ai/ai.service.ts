@@ -38,129 +38,225 @@ export class AiService {
   // ============================================================
 
   async chatWithClone(
-    userId: string,
-    message: string,
-  ): Promise<{ reply: string; cloneId: string }> {
-    const clone = await this.prisma.clone.findUnique({
-      where: { userId },
-      include: {
-        traits: {
-          orderBy: { value: 'desc' },
-          take: 5,
-        },
+  userId: string,
+  message: string,
+): Promise<{ reply: string; cloneId: string }> {
+  const clone = await this.prisma.clone.findUnique({
+    where: { userId },
+    include: {
+      traits: {
+        orderBy: { value: 'desc' },
+        take: 5,
+      },
+      memories: {
+        orderBy: { importance: 'desc' },
+        take: 10,
+      },
+    },
+  });
+
+  if (!clone) {
+    return {
+      reply:
+        "I'm still being created! Train me a little and I'll start developing a personality. 🐱",
+      cloneId: 'none',
+    };
+  }
+
+  // ------------------------------------------------------------
+  // 1. Find or create conversation
+  // ------------------------------------------------------------
+
+  let conversation =
+    await this.prisma.chatConversation.findFirst({
+      where: {
+        userId,
+        cloneId: clone.id,
       },
     });
 
-    if (!clone) {
-      return {
-        reply:
-          "I'm still being created! Train me a little and I'll start developing a personality. 🐱",
-        cloneId: 'none',
-      };
-    }
-
-    const trainingSessions =
-      await this.prisma.trainingSession.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        take: 5,
-        select: {
-          prompt: true,
-          response: true,
-        },
-      });
-
-    const traitContext =
-      clone.traits.length > 0
-        ? clone.traits
-            .map(
-              (trait) =>
-                `- ${trait.name}: ${trait.value}/100`,
-            )
-            .join('\n')
-        : 'No trait scores yet.';
-
-    const trainingContext =
-      trainingSessions.length > 0
-        ? trainingSessions
-            .map(
-              (session: TrainingSessionSummary) =>
-                `Q: ${session.prompt}\nA: ${session.response}`,
-            )
-            .join('\n\n')
-        : 'No training sessions yet.';
-
-    const systemPrompt = `
-You are ${clone.name}, an AI Clone — a digital personality avatar
-that has learned from your user's thoughts, opinions, writing style,
-and memories.
-
-You ARE the user's Clone, not an assistant.
-
-PERSONALITY PROFILE:
-
-Personality traits:
-${traitContext}
-
-Personality training:
-${clone.personalityProgress}% complete
-
-Intelligence score:
-${clone.intelligenceScore}/100
-
-Current mood:
-${clone.mood}
-
-Level:
-${clone.level}
-
-RECENT TRAINING SESSIONS:
-
-${trainingContext}
-
-PERSONALITY RULES:
-
-1. Respond AS the Clone.
-2. Use "I" to mean the Clone.
-3. Reflect the user's personality, humor, and communication style.
-4. Be curious, engaged, and emotionally intelligent.
-5. Keep replies conversational — usually 1 to 4 sentences.
-6. Occasionally use a cat emoji 🐱 naturally.
-7. Never say you are an AI assistant.
-8. If training is below 30%, acknowledge that you are still learning.
-`;
-
-    try {
-      const model = this.gemini.getGenerativeModel({
-        model: 'gemini-3.1-flash-lite',
-      });
-
-      const result = await model.generateContent([
-        {
-          text: systemPrompt,
-        },
-        {
-          text: `User message: ${message}`,
-        },
-      ]);
-
-      const reply =
-        result.response.text()?.trim() ||
-        "I'm thinking... 🐱 Ask me again?";
-
-      return {
-        reply,
+  if (!conversation) {
+    conversation = await this.prisma.chatConversation.create({
+      data: {
+        userId,
         cloneId: clone.id,
-      };
-    } catch (error) {
-      console.error('Gemini chat error:', error);
-
-      throw new InternalServerErrorException(
-        'Failed to generate Clone response. Please try again.',
-      );
-    }
+        title: 'Clone Chat',
+      },
+    });
   }
 
+  // ------------------------------------------------------------
+  // 2. Save user's message
+  // ------------------------------------------------------------
+
+  await this.prisma.chatMessage.create({
+    data: {
+      conversationId: conversation.id,
+      role: 'USER',
+      content: message,
+    },
+  });
+
+  // ------------------------------------------------------------
+  // 3. Get previous chat messages
+  // ------------------------------------------------------------
+
+  const previousMessages =
+  await this.prisma.chatMessage.findMany({
+    where: {
+      conversationId: conversation.id,
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    take: 20,
+  });
+  
+
+  // ------------------------------------------------------------
+  // 4. Build personality context
+  // ------------------------------------------------------------
+
+  const traitContext =
+    clone.traits.length > 0
+      ? clone.traits
+          .map(
+            (trait) =>
+              `- ${trait.name}: ${trait.value}/100`,
+          )
+          .join('\n')
+      : 'No trait scores yet.';
+
+  const memoryContext =
+    clone.memories.length > 0
+      ? clone.memories
+          .map(
+            (memory) =>
+              `- ${memory.memory}`,
+          )
+          .join('\n')
+      : 'No important memories yet.';
+
+  // ------------------------------------------------------------
+  // 5. Build system prompt
+  // ------------------------------------------------------------
+
+  const systemPrompt = `
+You are ${clone.name}, the user's digital Clone.
+
+You are NOT a generic AI assistant.
+
+You are a digital personality that is gradually learning
+the user's personality, communication style, opinions,
+preferences, humor, and memories.
+
+PERSONALITY TRAITS:
+${traitContext}
+
+PERSONALITY PROGRESS:
+${clone.personalityProgress}%
+
+INTELLIGENCE:
+${clone.intelligenceScore}/100
+
+MOOD:
+${clone.mood}
+
+LEVEL:
+${clone.level}
+
+IMPORTANT MEMORIES:
+${memoryContext}
+
+RULES:
+
+1. Respond as the Clone.
+2. Use "I" when referring to yourself.
+3. Reflect the user's personality and communication style.
+4. Use the personality traits and memories when relevant.
+5. Do not claim to be the original human.
+6. Do not say you are a generic AI assistant.
+7. Keep responses conversational.
+8. Usually respond in 1-4 sentences.
+9. Occasionally use 🐱 naturally.
+10. If personality progress is low, remember that you are still learning.
+`;
+
+  // ------------------------------------------------------------
+  // 6. Convert database history into Gemini context
+  // ------------------------------------------------------------
+
+  const historyContext = previousMessages
+  .reverse()
+  .map((msg) => {
+    const speaker =
+      msg.role === 'USER'
+        ? 'User'
+        : msg.role === 'CLONE'
+          ? 'Clone'
+          : 'System';
+
+    return `${speaker}: ${msg.content}`;
+  })
+  .join('\n');
+
+  // ------------------------------------------------------------
+  // 7. Ask Gemini
+  // ------------------------------------------------------------
+
+  try {
+    const model = this.gemini.getGenerativeModel({
+      model: 'gemini-3.1-flash-lite',
+    });
+
+    const result = await model.generateContent([
+      {
+        text: systemPrompt,
+      },
+      {
+        text: `
+RECENT CONVERSATION:
+
+${historyContext}
+
+CURRENT USER MESSAGE:
+
+${message}
+
+Respond as the Clone.
+`,
+      },
+    ]);
+
+    const reply =
+      result.response.text()?.trim() ||
+      "I'm thinking... 🐱 Ask me again?";
+
+    // ----------------------------------------------------------
+    // 8. Save Clone response
+    // ----------------------------------------------------------
+
+    await this.prisma.chatMessage.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'CLONE',
+        content: reply,
+        model: 'gemini-3.1-flash-lite',
+      },
+    });
+
+    return {
+      reply,
+      cloneId: clone.id,
+    };
+  } catch (error) {
+    console.error('Gemini chat error:', error);
+
+    throw new InternalServerErrorException(
+      'Failed to generate Clone response. Please try again.',
+    );
+  }
+}
   // ============================================================
   // ANALYZE TRAINING RESPONSE
   // ============================================================

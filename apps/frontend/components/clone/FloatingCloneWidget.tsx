@@ -1,7 +1,8 @@
 // apps/frontend/components/clone/FloatingCloneWidget.tsx
 
 "use client";
-import { chatWithClone, getChatHistory } from "@/services/api/clone.api";
+import { chatWithClone } from "@/services/api/ai.api";
+import { getChatHistory } from "@/services/api/clone.api";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { CLONE_MOODS } from "@/constants";
@@ -36,16 +37,13 @@ async function handleSend() {
   setSending(true);
 
   try {
-    const response = await chatWithClone({
-      message: userMessage,
-      
-    });
+    const response = await chatWithClone(userMessage);
 
     setMessages((prev) => [
       ...prev,
       {
         from: "clone",
-        text: response.reply,
+        text: response.data.reply,
       },
     ]);
 
