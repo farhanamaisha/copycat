@@ -4,6 +4,7 @@
 import { useState, useRef, useEffect } from "react";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import { chatWithClone } from "@/services/api/ai.api";
+import { getChatHistory } from "@/services/api/clone.api";
 
 interface Message {
   id: string;
@@ -74,8 +75,8 @@ export default function MessagesPage() {
   const [isSending, setIsSending] = useState(false);
   const [isCloneTyping, setIsCloneTyping] = useState(false);
   const [messages, setMessages] = useState<Record<string, Message[]>>({
-    conv_clone: INITIAL_CLONE_MESSAGES,
-  });
+  conv_clone: [],
+});
   const [conversations, setConversations] = useState(CONVERSATIONS);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -88,6 +89,32 @@ export default function MessagesPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isCloneTyping]);
+  useEffect(() => {
+  async function loadCloneHistory() {
+    try {
+      const history = await getChatHistory();
+
+      const formattedMessages: Message[] = history.map(
+        (msg, index) => ({
+          id: `history_${index}`,
+          senderId: msg.from === "user" ? "usr_01" : "clone",
+          content: msg.text,
+          createdAt: new Date().toISOString(),
+          isRead: true,
+        }),
+      );
+
+      setMessages((prev) => ({
+        ...prev,
+        conv_clone: formattedMessages,
+      }));
+    } catch (error) {
+      console.error("Failed to load Clone chat history:", error);
+    }
+  }
+
+  loadCloneHistory();
+}, []);
 
   function getDisplayName(conv: Conversation) {
     return conv.name ?? conv.participant?.displayName ?? "Unknown";
@@ -339,7 +366,7 @@ export default function MessagesPage() {
         <div className="px-5 py-4 border-t border-white/[0.06]">
           {isCloneChat && (
             <p className="text-[11px] text-white/20 mb-2 px-1">
-              🐱 Powered by OpenAI · Cosmo responds based on your training data
+              🐱 Powered by Gemini · Cosmo responds based on your training data
             </p>
           )}
           <div className="flex items-center gap-3 px-4 py-3 rounded-xl border border-white/[0.1] bg-white/[0.03] focus-within:border-[#4f9fff]/35 transition-colors">
