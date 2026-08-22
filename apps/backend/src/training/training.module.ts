@@ -1,0 +1,14 @@
+// apps/backend/src/training/training.module.ts
+import { Module } from '@nestjs/common';
+import { TrainingController } from './training.controller';
+import { TrainingService } from './training.service';
+import { AiModule } from '../ai/ai.module';
+import { PrismaModule } from '../prisma/prisma.module';
+
+@Module({
+  imports: [PrismaModule, AiModule],
+  controllers: [TrainingController],
+  providers: [TrainingService],
+  exports: [TrainingService],
+})
+export class TrainingModule {}
