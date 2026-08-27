@@ -124,6 +124,14 @@ export const Icons = {
       <line x1="21" y1="21" x2="16.65" y2="16.65" />
     </svg>
   ),
+  Connections: ({ className, size = 18 }: IconProps) => (
+  <svg {...base(size)} className={className} stroke="currentColor">
+    <circle cx="9" cy="7" r="3" />
+    <circle cx="17" cy="9" r="3" />
+    <path d="M3 20v-2a4 4 0 014-4h4a4 4 0 014 4v2" />
+    <path d="M14 14h3a4 4 0 014 4v2" />
+  </svg>
+),
   ChevronRight: ({ className, size = 16 }: IconProps) => (
     <svg {...base(size)} className={className} stroke="currentColor">
       <polyline points="9 18 15 12 9 6" />

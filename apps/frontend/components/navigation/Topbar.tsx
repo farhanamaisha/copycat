@@ -34,12 +34,17 @@ export function Topbar() {
 
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-6 border-b border-white/[0.06] bg-[#080811]/90 backdrop-blur-xl">
-      {/* Search */}
-      <div className="flex items-center gap-2 w-[280px] h-8 px-3 rounded-[9px] border border-white/[0.08] bg-white/[0.03] text-white/30 hover:border-white/[0.14] hover:bg-white/[0.05] transition-all cursor-text">
-        <Icons.Search size={14} className="shrink-0" />
-        <span className="text-[13px] select-none">Search Copy Cat…</span>
-        <span className="ml-auto text-[11px] border border-white/[0.1] rounded px-1 py-0.5">⌘K</span>
-      </div>
+    {/* Search */}
+<Link
+  href="/search"
+  className="flex items-center gap-2 w-[280px] h-8 px-3 rounded-[9px] border border-white/[0.08] bg-white/[0.03] text-white/30 hover:border-white/[0.14] hover:bg-white/[0.05] transition-all cursor-pointer"
+>
+  <Icons.Search size={14} className="shrink-0" />
+  <span className="text-[13px] select-none">Search Copy Cat…</span>
+  <span className="ml-auto text-[11px] border border-white/[0.1] rounded px-1 py-0.5">
+    ⌘K
+  </span>
+</Link>
 
       <div className="flex items-center gap-2">
         {/* Write post */}

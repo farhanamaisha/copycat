@@ -3,7 +3,7 @@
 import { updateProfile, getCurrentUser } from "@/services/api/user.api";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
-
+import { getMyClone, updateClone } from "@/services/api/clone.api";
 const TABS = ["Profile", "Clone", "Privacy", "Notifications", "Account"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -20,7 +20,7 @@ export default function SettingsPage() {
     avatarUrl: "",
   });
   const [cloneSettings, setCloneSettings] = useState({
-    cloneName: "Cosmo",
+    cloneName: "",
     allowPublicChat: true,
     shareTrainingData: false,
     autoTrain: true,
@@ -47,9 +47,10 @@ export default function SettingsPage() {
     pushEnabled: true,
   });
   useEffect(() => {
-  async function loadUser() {
+  async function loadSettings() {
     try {
       const user = await getCurrentUser();
+      const clone = await getMyClone();
 
       setProfile((prev) => ({
         ...prev,
@@ -60,12 +61,16 @@ export default function SettingsPage() {
         avatarUrl: user.avatarUrl || "",
       }));
 
+      setCloneSettings((prev) => ({
+        ...prev,
+        cloneName: clone.name || "",
+      }));
     } catch (error) {
-      console.error("Failed to load user:", error);
+      console.error("Failed to load settings:", error);
     }
   }
 
-  loadUser();
+  loadSettings();
 }, []);
 
   async function handleSave() {
@@ -79,15 +84,19 @@ export default function SettingsPage() {
       });
     }
 
+    if (tab === "Clone") {
+      await updateClone({
+        name: cloneSettings.cloneName,
+      });
+    }
+
     setSaved(true);
 
     setTimeout(() => setSaved(false), 2000);
-
   } catch (error) {
-    console.error("Failed to save profile:", error);
+    console.error("Failed to save settings:", error);
   }
 }
-
   return (
     <div className="px-6 py-6 max-w-[800px] mx-auto">
       <div className="mb-6">

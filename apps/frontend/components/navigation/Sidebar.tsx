@@ -15,6 +15,8 @@ const NAV_ITEMS = [
   { id: "messages", label: "Messages", href: ROUTES.MESSAGES, Icon: Icons.Messages, badge: 3 },
   { id: "clowders", label: "Clowders", href: ROUTES.CLOWDERS, Icon: Icons.Clowders },
   { id: "explore", label: "Explore", href: ROUTES.EXPLORE, Icon: Icons.Explore },
+  { id: "search", label: "Search", href: "/search", Icon: Icons.Search },
+  { id: "connections", label: "Connections", href: "/connections", Icon: Icons.Connections },
   { id: "notifications", label: "Notifications", href: ROUTES.NOTIFICATIONS, Icon: Icons.Notifications },
 ] as const;
 

@@ -59,6 +59,16 @@ export class TrainingService {
       },
       include: { traitsImproved: true },
     });
+    // Save important personal memory
+if (analysis.memory) {
+  await this.prisma.cloneMemory.create({
+    data: {
+      cloneId: clone.id,
+      memory: analysis.memory,
+      importance: analysis.memoryImportance,
+    },
+  });
+}
 
     // Update Clone trait scores
     for (const [traitName, delta] of Object.entries(analysis.traitDeltas)) {

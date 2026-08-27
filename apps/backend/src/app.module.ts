@@ -11,7 +11,7 @@ import { MessagesModule } from './messages/messages.module';
 import { HealthController } from './health/health.controller';
 import { AiModule } from './ai/ai.module';
 import { TrainingModule } from './training/training.module';
-
+import { SocialModule } from './social/social.module';
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -26,6 +26,7 @@ import { TrainingModule } from './training/training.module';
     MessagesModule,
     AiModule,
     TrainingModule,
+    SocialModule,
   ],
 
   controllers: [

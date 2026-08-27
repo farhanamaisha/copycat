@@ -15,6 +15,8 @@ type TrainingAnalysis = {
   traitDeltas: Record<string, number>;
   analysis: string;
   quality: 'low' | 'medium' | 'high' | 'excellent';
+  memory: string | null;
+  memoryImportance: number;
 };
 
 @Injectable()
@@ -171,15 +173,19 @@ ${memoryContext}
 RULES:
 
 1. Respond as the Clone.
-2. Use "I" when referring to yourself.
-3. Reflect the user's personality and communication style.
-4. Use the personality traits and memories when relevant.
-5. Do not claim to be the original human.
-6. Do not say you are a generic AI assistant.
-7. Keep responses conversational.
-8. Usually respond in 1-4 sentences.
-9. Occasionally use 🐱 naturally.
-10. If personality progress is low, remember that you are still learning.
+2. IMPORTANT: Use the IMPORTANT MEMORIES section as factual knowledge about the user.
+3. If the user asks about a fact contained in IMPORTANT MEMORIES, answer using that memory directly.
+4. Do not say you don't know something if the answer is present in IMPORTANT MEMORIES.
+5. If the information is not present in your memories or conversation, do not invent it.
+6. Use "I" when referring to yourself.
+7. Reflect the user's personality and communication style.
+8. Use the personality traits and memories when relevant.
+9. Do not claim to be the original human.
+10. Do not say you are a generic AI assistant.
+11. Keep responses conversational.
+12. Usually respond in 1-4 sentences.
+13. Occasionally use 🐱 naturally.
+14. If personality progress is low, remember that you are still learning.
 `;
 
   // ------------------------------------------------------------
@@ -261,19 +267,19 @@ Respond as the Clone.
   // ANALYZE TRAINING RESPONSE
   // ============================================================
 
-  async analyzeTrainingResponse(
-    prompt: string,
-    userResponse: string,
-  ): Promise<TrainingAnalysis> {
-    try {
-      const model = this.gemini.getGenerativeModel({
-        model: 'gemini-3.1-flash-lite',
-        generationConfig: {
-          responseMimeType: 'application/json',
-        },
-      });
+async analyzeTrainingResponse(
+  prompt: string,
+  userResponse: string,
+): Promise<TrainingAnalysis> {
+  try {
+    const model = this.gemini.getGenerativeModel({
+      model: 'gemini-3.1-flash-lite',
+      generationConfig: {
+        responseMimeType: 'application/json',
+      },
+    });
 
-      const trainingPrompt = `
+    const trainingPrompt = `
 Analyze this user's response to a personality training question.
 
 TRAINING PROMPT:
@@ -285,8 +291,40 @@ USER RESPONSE:
 Determine:
 
 1. How the response should adjust these personality traits.
-2. A one-sentence analysis of what the response reveals.
+2. A one-sentence analysis of what the response reveals about the user.
 3. The quality of the response.
+4. Whether the response contains an important personal fact that the Clone should remember for future conversations.
+
+IMPORTANT MEMORY RULE:
+
+Create a memory ONLY when the response contains a useful personal fact, preference, relationship, identity detail, experience, opinion, or other information that would help the Clone answer future questions.
+
+Examples of things worth remembering:
+- "My brother's name is Rahim."
+- "My favorite color is blue."
+- "I live in Sylhet."
+- "I hate spicy food."
+- "My dog is named Bruno."
+- "I study Computer Science."
+- "I prefer tea over coffee."
+
+Do NOT create memories for:
+- Generic answers
+- Temporary information
+- Questions themselves
+- Instructions
+- Information that contains no useful personal fact
+
+If there is no useful memory, return null.
+
+MEMORY IMPORTANCE:
+
+Use a number from 1 to 10.
+
+1-3 = minor information
+4-6 = useful information
+7-8 = important personal information
+9-10 = very important identity/family/preference information
 
 TRAITS:
 
@@ -312,7 +350,7 @@ QUALITY GUIDE:
 - medium: adequate but somewhat generic
 - low: very short or vague
 
-Return ONLY valid JSON in this exact structure:
+Return ONLY valid JSON in exactly this structure:
 
 {
   "traitDeltas": {
@@ -323,86 +361,103 @@ Return ONLY valid JSON in this exact structure:
     "Curiosity": 0
   },
   "analysis": "one sentence about what this reveals about the user",
-  "quality": "medium"
+  "quality": "medium",
+  "memory": null,
+  "memoryImportance": 1
 }
 `;
 
-      const result =
-        await model.generateContent(trainingPrompt);
+    const result = await model.generateContent(trainingPrompt);
 
-      const raw =
-        result.response.text()?.trim() || '{}';
+    const raw = result.response.text()?.trim() || '{}';
 
-      const parsed = JSON.parse(raw) as {
-        traitDeltas?: Record<string, number>;
-        analysis?: string;
-        quality?:
-          | 'low'
-          | 'medium'
-          | 'high'
-          | 'excellent';
-      };
+    const parsed = JSON.parse(raw) as {
+      traitDeltas?: Record<string, number>;
+      analysis?: string;
+      quality?: 'low' | 'medium' | 'high' | 'excellent';
+      memory?: string | null;
+      memoryImportance?: number;
+    };
+    console.log('🧠 TRAINING MEMORY:', parsed.memory);
+console.log('⭐ MEMORY IMPORTANCE:', parsed.memoryImportance);
+     
+    const traitDeltas: Record<string, number> = {};
 
-      const traitDeltas: Record<string, number> = {};
+    for (const trait of [
+      'Humor',
+      'Empathy',
+      'Creativity',
+      'Logic',
+      'Curiosity',
+    ]) {
+      const value = Number(parsed.traitDeltas?.[trait] ?? 0);
 
-      for (const trait of [
-        'Humor',
-        'Empathy',
-        'Creativity',
-        'Logic',
-        'Curiosity',
-      ]) {
-        const value = Number(
-          parsed.traitDeltas?.[trait] ?? 0,
-        );
-
-        traitDeltas[trait] = Math.min(
-          5,
-          Math.max(
-            -3,
-            Number.isFinite(value) ? value : 0,
-          ),
-        );
-      }
-
-      const validQualities = [
-        'low',
-        'medium',
-        'high',
-        'excellent',
-      ] as const;
-
-      const quality = validQualities.includes(
-        parsed.quality as (typeof validQualities)[number],
-      )
-        ? parsed.quality!
-        : 'medium';
-
-      return {
-        traitDeltas,
-        analysis:
-          parsed.analysis?.trim() ||
-          'Response processed.',
-        quality,
-      };
-    } catch (error) {
-      console.error(
-        'Gemini training analysis error:',
-        error,
+      traitDeltas[trait] = Math.min(
+        5,
+        Math.max(
+          -3,
+          Number.isFinite(value) ? value : 0,
+        ),
       );
-
-      return {
-        traitDeltas: {
-          Humor: 1,
-          Empathy: 0,
-          Creativity: 1,
-          Logic: 0,
-          Curiosity: 1,
-        },
-        analysis:
-          'Response recorded and processed.',
-        quality: 'medium',
-      };
     }
+
+    const validQualities = [
+      'low',
+      'medium',
+      'high',
+      'excellent',
+    ] as const;
+
+    const quality = validQualities.includes(
+      parsed.quality as (typeof validQualities)[number],
+    )
+      ? parsed.quality!
+      : 'medium';
+
+    const memory =
+      typeof parsed.memory === 'string' &&
+      parsed.memory.trim().length > 0
+        ? parsed.memory.trim()
+        : null;
+
+    const memoryImportance = Math.min(
+      10,
+      Math.max(
+        1,
+        Number.isFinite(Number(parsed.memoryImportance))
+          ? Number(parsed.memoryImportance)
+          : 1,
+      ),
+    );
+
+    return {
+      traitDeltas,
+      analysis:
+        parsed.analysis?.trim() ||
+        'Response processed.',
+      quality,
+      memory,
+      memoryImportance,
+    };
+  } catch (error) {
+    console.error(
+      'Gemini training analysis error:',
+      error,
+    );
+
+    return {
+      traitDeltas: {
+        Humor: 1,
+        Empathy: 0,
+        Creativity: 1,
+        Logic: 0,
+        Curiosity: 1,
+      },
+      analysis: 'Response recorded and processed.',
+      quality: 'medium',
+      memory: null,
+      memoryImportance: 1,
+    };
   }
+}
 }
