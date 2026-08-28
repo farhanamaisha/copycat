@@ -13,6 +13,7 @@ import {
 
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClonesService } from './clones.service';
+import { UpdateCloneDto } from './dto/update-clone.dto';
 
 type RequestWithUser = {
   user: {
@@ -24,27 +25,35 @@ type RequestWithUser = {
 export class ClonesController {
   constructor(private clonesService: ClonesService) {}
 
+  // ============================================================
+  // GET MY CLONE
+  // ============================================================
+
   @Get('me')
   @UseGuards(JwtAuthGuard)
   getMyClone(@Req() req: RequestWithUser) {
     return this.clonesService.getClone(req.user.userId);
   }
 
+  // ============================================================
+  // UPDATE MY CLONE
+  // ============================================================
+
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   updateMyClone(
     @Req() req: RequestWithUser,
-    @Body()
-    data: {
-      name?: string;
-      mood?: string;
-      accuracyPercent?: number;
-      level?: number;
-      personalityProgress?: number;
-    },
+    @Body() data: UpdateCloneDto,
   ) {
-    return this.clonesService.updateClone(req.user.userId, data);
+    return this.clonesService.updateClone(
+      req.user.userId,
+      data,
+    );
   }
+
+  // ============================================================
+  // TRAIN CLONE
+  // ============================================================
 
   @Post('me/train')
   @UseGuards(JwtAuthGuard)
@@ -59,6 +68,10 @@ export class ClonesController {
     );
   }
 
+  // ============================================================
+  // CHAT WITH CLONE
+  // ============================================================
+
   @Post('chat')
   @UseGuards(JwtAuthGuard)
   chatWithClone(
@@ -70,6 +83,10 @@ export class ClonesController {
       body.message,
     );
   }
+
+  // ============================================================
+  // CHAT HISTORY
+  // ============================================================
 
   @Get('chat/history')
   @UseGuards(JwtAuthGuard)

@@ -61,6 +61,7 @@ model Clone {
 
   name                String
   avatarUrl           String?
+  avatarConfig String?
   personalityProgress Int     @default(0)
   intelligenceScore   Int     @default(0)
   level               Int     @default(1)

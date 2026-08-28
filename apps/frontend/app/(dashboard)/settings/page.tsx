@@ -4,12 +4,21 @@ import { updateProfile, getCurrentUser } from "@/services/api/user.api";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { getMyClone, updateClone } from "@/services/api/clone.api";
+import {
+  CloneAvatarBuilder,
+  CloneAvatarSVG,
+  DEFAULT_AVATAR,
+  type CloneAvatarConfig,
+} from "@/components/avatar/CloneAvatarBuilder";
+
 const TABS = ["Profile", "Clone", "Privacy", "Notifications", "Account"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("Profile");
   const [saved, setSaved] = useState(false);
+  const [avatarConfig, setAvatarConfig] = useState<CloneAvatarConfig>(DEFAULT_AVATAR);
+
   const [profile, setProfile] = useState({
     displayName: "Cosmic Whisker",
     username: "cosmic_whisker",
@@ -19,6 +28,7 @@ export default function SettingsPage() {
     location: "",
     avatarUrl: "",
   });
+
   const [cloneSettings, setCloneSettings] = useState({
     cloneName: "",
     allowPublicChat: true,
@@ -27,6 +37,7 @@ export default function SettingsPage() {
     cloneVisibility: "public",
     moodDisplay: true,
   });
+
   const [privacy, setPrivacy] = useState({
     profileVisibility: "public",
     showFollowers: true,
@@ -35,6 +46,7 @@ export default function SettingsPage() {
     showOnlineStatus: true,
     showCloneActivity: true,
   });
+
   const [notifications, setNotifications] = useState({
     likes: true,
     comments: true,
@@ -46,57 +58,81 @@ export default function SettingsPage() {
     emailDigest: false,
     pushEnabled: true,
   });
+
+  // ── Load real data from backend ──────────────────────────────────────────
   useEffect(() => {
-  async function loadSettings() {
+    async function loadSettings() {
+      try {
+        const user = await getCurrentUser();
+        const clone = await getMyClone();
+
+        setProfile((prev) => ({
+          ...prev,
+          displayName: user.displayName || "",
+          username: user.username || "",
+          bio: user.bio || "",
+          email: user.email || "",
+          avatarUrl: user.avatarUrl || "",
+        }));
+
+        setCloneSettings((prev) => ({
+          ...prev,
+          cloneName: clone.name || "",
+        }));
+
+        // Load saved avatar config from clone if it exists
+        if (clone.avatarConfig) {
+          try {
+            setAvatarConfig(JSON.parse(clone.avatarConfig));
+          } catch {
+            // use default if parse fails
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load settings:", error);
+      }
+    }
+    loadSettings();
+  }, []);
+
+  // ── Save to backend ───────────────────────────────────────────────────────
+  async function handleSave() {
     try {
-      const user = await getCurrentUser();
-      const clone = await getMyClone();
+      if (tab === "Profile") {
+        await updateProfile({
+          displayName: profile.displayName,
+          username: profile.username,
+          bio: profile.bio,
+          avatarUrl: profile.avatarUrl,
+        });
+      }
 
-      setProfile((prev) => ({
-        ...prev,
-        displayName: user.displayName || "",
-        username: user.username || "",
-        bio: user.bio || "",
-        email: user.email || "",
-        avatarUrl: user.avatarUrl || "",
-      }));
+      if (tab === "Clone") {
+        await updateClone({
+          name: cloneSettings.cloneName,
+        });
+      }
 
-      setCloneSettings((prev) => ({
-        ...prev,
-        cloneName: clone.name || "",
-      }));
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
     } catch (error) {
-      console.error("Failed to load settings:", error);
+      console.error("Failed to save settings:", error);
     }
   }
 
-  loadSettings();
-}, []);
-
-  async function handleSave() {
-  try {
-    if (tab === "Profile") {
-      await updateProfile({
-        displayName: profile.displayName,
-        username: profile.username,
-        bio: profile.bio,
-        avatarUrl: profile.avatarUrl,
-      });
-    }
-
-    if (tab === "Clone") {
+  // ── Save avatar config ────────────────────────────────────────────────────
+  async function handleSaveAvatar(config: CloneAvatarConfig) {
+    setAvatarConfig(config);
+    try {
       await updateClone({
         name: cloneSettings.cloneName,
+        avatarConfig: JSON.stringify(config),
       });
+    } catch (error) {
+      console.error("Failed to save avatar:", error);
     }
-
-    setSaved(true);
-
-    setTimeout(() => setSaved(false), 2000);
-  } catch (error) {
-    console.error("Failed to save settings:", error);
   }
-}
+
   return (
     <div className="px-6 py-6 max-w-[800px] mx-auto">
       <div className="mb-6">
@@ -122,18 +158,26 @@ export default function SettingsPage() {
         <div className="flex-1 min-w-0">
           <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-6">
 
-            {/* Profile */}
+            {/* ── Profile ── */}
             {tab === "Profile" && (
               <div className="space-y-5">
                 <h2 className="text-[15px] font-bold text-white">Profile Settings</h2>
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-white/10 to-white/5 border-2 border-white/10 flex items-center justify-center text-xl font-bold text-white/60">
-                    CW
-                  </div>
-                  <button className="px-4 py-2 rounded-lg border border-white/[0.1] text-[13px] text-white/60 hover:text-white hover:border-white/20 transition-all">
-                    Change Avatar
-                  </button>
-                </div>
+                
+<div className="flex items-center gap-4">
+  <div className="w-16 h-16 rounded-full overflow-hidden bg-gradient-to-br from-white/10 to-white/5 border-2 border-white/10 flex items-center justify-center">
+    <CloneAvatarSVG config={avatarConfig} size={64} />
+  </div>
+
+  <button
+    type="button"
+    onClick={() => setTab("Clone")}
+    className="px-4 py-2 rounded-lg border border-white/[0.1] text-[13px] text-white/60 hover:text-white hover:border-white/20 transition-all"
+  >
+    Change Avatar
+  </button>
+</div>
+
+
                 {[
                   { label: "Display Name", key: "displayName", placeholder: "Your display name" },
                   { label: "Username", key: "username", placeholder: "username" },
@@ -160,16 +204,40 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Clone */}
+            {/* ── Clone ── */}
             {tab === "Clone" && (
               <div className="space-y-5">
                 <h2 className="text-[15px] font-bold text-white">Clone Settings</h2>
+
+                {/* Clone name */}
                 <div>
                   <label className="block text-[12px] font-medium text-white/50 mb-1.5">Clone Name</label>
                   <input value={cloneSettings.cloneName}
                     onChange={(e) => setCloneSettings((p) => ({ ...p, cloneName: e.target.value }))}
                     className="w-full bg-white/[0.04] border border-white/[0.08] rounded-[9px] px-3 py-2.5 text-[13px] text-white outline-none focus:border-[#4f9fff]/40 transition-colors" />
                 </div>
+
+                {/* ── Avatar Builder ── */}
+                <div className="rounded-2xl border border-[#4f9fff]/15 bg-[#4f9fff]/[0.03] p-5">
+                  <div className="flex items-center gap-3 mb-5">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/[0.1] shrink-0">
+                      <CloneAvatarSVG config={avatarConfig} size={40} />
+                    </div>
+                    <div>
+                      <p className="text-[14px] font-bold text-white">Clone Appearance</p>
+                      <p className="text-[11px] text-white/40">
+                        Design how {cloneSettings.cloneName || "your Clone"} looks
+                      </p>
+                    </div>
+                  </div>
+                  <CloneAvatarBuilder
+                    initialConfig={avatarConfig}
+                    cloneName={cloneSettings.cloneName || "Your Clone"}
+                    onSave={handleSaveAvatar}
+                  />
+                </div>
+
+                {/* Clone visibility */}
                 <div>
                   <label className="block text-[12px] font-medium text-white/50 mb-1.5">Clone Visibility</label>
                   <select value={cloneSettings.cloneVisibility}
@@ -180,12 +248,14 @@ export default function SettingsPage() {
                     <option value="private" className="bg-[#0d0d1a]">🔒 Private — Only you</option>
                   </select>
                 </div>
+
+                {/* Toggles */}
                 <div className="space-y-3">
                   {[
-                    { key: "allowPublicChat", label: "Allow public Clone chat", desc: "Let others chat with your Clone" },
-                    { key: "shareTrainingData", label: "Share training insights", desc: "Help improve the platform anonymously" },
-                    { key: "autoTrain", label: "Auto-training mode", desc: "Clone learns from your posts automatically" },
-                    { key: "moodDisplay", label: "Show Clone mood", desc: "Display mood indicator on your profile" },
+                    { key: "allowPublicChat",   label: "Allow public Clone chat",  desc: "Let others chat with your Clone" },
+                    { key: "shareTrainingData", label: "Share training insights",  desc: "Help improve the platform anonymously" },
+                    { key: "autoTrain",         label: "Auto-training mode",       desc: "Clone learns from your posts automatically" },
+                    { key: "moodDisplay",       label: "Show Clone mood",          desc: "Display mood indicator on your profile" },
                   ].map(({ key, label, desc }) => (
                     <div key={key} className="flex items-center justify-between p-3 rounded-xl border border-white/[0.07] bg-white/[0.02]">
                       <div>
@@ -207,7 +277,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Privacy */}
+            {/* ── Privacy ── */}
             {tab === "Privacy" && (
               <div className="space-y-5">
                 <h2 className="text-[15px] font-bold text-white">Privacy Settings</h2>
@@ -233,10 +303,10 @@ export default function SettingsPage() {
                 </div>
                 <div className="space-y-3">
                   {[
-                    { key: "showFollowers", label: "Show followers count" },
-                    { key: "showFollowing", label: "Show following count" },
+                    { key: "showFollowers",    label: "Show followers count" },
+                    { key: "showFollowing",    label: "Show following count" },
                     { key: "showOnlineStatus", label: "Show online status" },
-                    { key: "showCloneActivity", label: "Show Clone activity" },
+                    { key: "showCloneActivity",label: "Show Clone activity" },
                   ].map(({ key, label }) => (
                     <div key={key} className="flex items-center justify-between p-3 rounded-xl border border-white/[0.07] bg-white/[0.02]">
                       <p className="text-[13px] font-medium text-white">{label}</p>
@@ -255,21 +325,21 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Notifications */}
+            {/* ── Notifications ── */}
             {tab === "Notifications" && (
               <div className="space-y-5">
                 <h2 className="text-[15px] font-bold text-white">Notification Settings</h2>
                 <div className="space-y-3">
                   {[
-                    { key: "likes", label: "Likes", desc: "When someone likes your post" },
-                    { key: "comments", label: "Comments", desc: "When someone comments on your post" },
-                    { key: "follows", label: "New followers", desc: "When someone follows you" },
-                    { key: "cloneMessages", label: "Clone messages", desc: "When another Clone messages yours" },
+                    { key: "likes",            label: "Likes",             desc: "When someone likes your post" },
+                    { key: "comments",         label: "Comments",          desc: "When someone comments on your post" },
+                    { key: "follows",          label: "New followers",     desc: "When someone follows you" },
+                    { key: "cloneMessages",    label: "Clone messages",    desc: "When another Clone messages yours" },
                     { key: "trainingComplete", label: "Training complete", desc: "When a training session finishes" },
-                    { key: "clowderInvites", label: "Clowder invites", desc: "When you're invited to a Clowder" },
-                    { key: "mentions", label: "Mentions", desc: "When someone mentions you" },
-                    { key: "emailDigest", label: "Email digest", desc: "Weekly summary via email" },
-                    { key: "pushEnabled", label: "Push notifications", desc: "Browser push notifications" },
+                    { key: "clowderInvites",   label: "Clowder invites",   desc: "When you're invited to a Clowder" },
+                    { key: "mentions",         label: "Mentions",          desc: "When someone mentions you" },
+                    { key: "emailDigest",      label: "Email digest",      desc: "Weekly summary via email" },
+                    { key: "pushEnabled",      label: "Push notifications",desc: "Browser push notifications" },
                   ].map(({ key, label, desc }) => (
                     <div key={key} className="flex items-center justify-between p-3 rounded-xl border border-white/[0.07] bg-white/[0.02]">
                       <div>
@@ -291,7 +361,7 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Account */}
+            {/* ── Account ── */}
             {tab === "Account" && (
               <div className="space-y-5">
                 <h2 className="text-[15px] font-bold text-white">Account Settings</h2>
@@ -319,8 +389,8 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Save button */}
-            {tab !== "Account" && (
+            {/* ── Save button ── */}
+            {tab !== "Account" && tab !== "Clone" && (
               <div className="mt-6 pt-5 border-t border-white/[0.07] flex items-center justify-between">
                 {saved && <p className="text-[13px] text-emerald-400 animate-in fade-in duration-200">✓ Changes saved</p>}
                 <button onClick={handleSave} className="ml-auto px-6 py-2.5 rounded-[9px] bg-gradient-to-br from-[#4f9fff] to-[#7c6dfa] text-[13px] font-semibold text-white shadow-[0_0_20px_rgba(79,159,255,0.3)] hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(79,159,255,0.4)] transition-all">
@@ -328,6 +398,15 @@ export default function SettingsPage() {
                 </button>
               </div>
             )}
+            {tab === "Clone" && (
+              <div className="mt-6 pt-5 border-t border-white/[0.07] flex items-center justify-between">
+                {saved && <p className="text-[13px] text-emerald-400 animate-in fade-in duration-200">✓ Changes saved</p>}
+                <button onClick={handleSave} className="ml-auto px-6 py-2.5 rounded-[9px] bg-gradient-to-br from-[#4f9fff] to-[#7c6dfa] text-[13px] font-semibold text-white shadow-[0_0_20px_rgba(79,159,255,0.3)] hover:-translate-y-0.5 hover:shadow-[0_0_30px_rgba(79,159,255,0.4)] transition-all">
+                  Save Clone Settings
+                </button>
+              </div>
+            )}
+
           </div>
         </div>
       </div>

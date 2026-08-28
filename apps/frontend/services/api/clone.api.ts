@@ -1,10 +1,19 @@
 // apps/frontend/services/api/clone.api.ts
+
 import { apiClient } from "./client";
 import type { Clone } from "@/types";
+
+// ─────────────────────────────────────────────────────────────
+// Get current user's Clone
+// ─────────────────────────────────────────────────────────────
 
 export async function getMyClone(): Promise<Clone> {
   return apiClient.get<Clone>("/clones/me");
 }
+
+// ─────────────────────────────────────────────────────────────
+// Create Clone
+// ─────────────────────────────────────────────────────────────
 
 export async function createClone(data: {
   name: string;
@@ -12,22 +21,39 @@ export async function createClone(data: {
   return apiClient.post<Clone>("/clones", data);
 }
 
+// ─────────────────────────────────────────────────────────────
+// Update Clone
+// ─────────────────────────────────────────────────────────────
+
 export async function updateClone(data: {
   name?: string;
-  avatarUrl?: string;
+  avatarUrl?: string | null;
+  avatarConfig?: string | null;
 }): Promise<Clone> {
   return apiClient.patch<Clone>("/clones/me", data);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Train Clone
+// ─────────────────────────────────────────────────────────────
 
 export async function trainClone(data: {
   message: string;
 }): Promise<{
   clone: Clone;
-  deltas: { funny: number; calm: number; intelligent: number };
+  deltas: {
+    funny: number;
+    calm: number;
+    intelligent: number;
+  };
   pointsEarned: number;
 }> {
   return apiClient.post("/clones/me/train", data);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Get Clone memories
+// ─────────────────────────────────────────────────────────────
 
 export async function getCloneMemory(): Promise<{
   memories: Array<{
@@ -41,19 +67,44 @@ export async function getCloneMemory(): Promise<{
   return apiClient.get("/clones/me/memory");
 }
 
-export async function deleteMemory(memoryId: string): Promise<void> {
+// ─────────────────────────────────────────────────────────────
+// Delete Clone memory
+// ─────────────────────────────────────────────────────────────
+
+export async function deleteMemory(
+  memoryId: string,
+): Promise<void> {
   return apiClient.delete(`/clones/me/memory/${memoryId}`);
 }
 
-export async function getCloneByUserId(userId: string): Promise<Clone> {
-  return apiClient.get<Clone>(`/clones/user/${userId}`);
+// ─────────────────────────────────────────────────────────────
+// Get Clone by User ID
+// ─────────────────────────────────────────────────────────────
+
+export async function getCloneByUserId(
+  userId: string,
+): Promise<Clone> {
+  return apiClient.get<Clone>(
+    `/clones/user/${userId}`,
+  );
 }
+
+// ─────────────────────────────────────────────────────────────
+// Chat with Clone
+// ─────────────────────────────────────────────────────────────
 
 export async function chatWithClone(data: {
   message: string;
-}): Promise<{ reply: string }> {
+}): Promise<{
+  reply: string;
+}> {
   return apiClient.post("/clones/chat", data);
 }
+
+// ─────────────────────────────────────────────────────────────
+// Get Clone chat history
+// ─────────────────────────────────────────────────────────────
+
 export async function getChatHistory(): Promise<
   {
     from: "user" | "clone";
