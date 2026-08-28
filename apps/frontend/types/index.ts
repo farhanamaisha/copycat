@@ -13,7 +13,7 @@ export interface User {
   createdAt: string;
   isVerified: boolean;
   isPremium: boolean;
-  clone: {
+  clone?: {
   id?: string;
   name: string;
   level: number;
