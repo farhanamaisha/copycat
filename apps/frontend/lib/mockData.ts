@@ -15,6 +15,7 @@ export const MOCK_USER: User = {
   createdAt: "2025-09-01T00:00:00Z",
   isVerified: true,
   isPremium: true,
+  clone: null,
 };
 
 export const MOCK_CLONE: Clone = {
@@ -42,19 +43,25 @@ export const MOCK_CLONE: Clone = {
       id: "act_1",
       type: "learned",
       description: "Learned your writing style from 12 new posts",
-      timestamp: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
+      timestamp: new Date(
+        Date.now() - 1000 * 60 * 14
+      ).toISOString(),
     },
     {
       id: "act_2",
       type: "interacted",
       description: "Chatted with @neon_paws's Clone for 8 minutes",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60).toISOString(),
+      timestamp: new Date(
+        Date.now() - 1000 * 60 * 60
+      ).toISOString(),
     },
     {
       id: "act_3",
       type: "trained",
       description: "Completed personality training session #247",
-      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+      timestamp: new Date(
+        Date.now() - 1000 * 60 * 60 * 3
+      ).toISOString(),
     },
   ],
 };
@@ -77,6 +84,7 @@ const makeUser = (
   createdAt: "2025-10-01T00:00:00Z",
   isVerified: false,
   isPremium: false,
+  clone: null,
 });
 
 export const MOCK_SUGGESTED_USERS: User[] = [
@@ -87,9 +95,30 @@ export const MOCK_SUGGESTED_USERS: User[] = [
 ];
 
 export const MOCK_SUGGESTED_CLONES: Partial<Clone>[] = [
-  { id: "clone_02", userId: "usr_02", name: "Nova", personalityProgress: 84, level: 21, mood: "energetic" },
-  { id: "clone_03", userId: "usr_03", name: "Pixel", personalityProgress: 61, level: 9, mood: "playful" },
-  { id: "clone_04", userId: "usr_04", name: "Void", personalityProgress: 93, level: 33, mood: "focused" },
+  {
+    id: "clone_02",
+    userId: "usr_02",
+    name: "Nova",
+    personalityProgress: 84,
+    level: 21,
+    mood: "energetic",
+  },
+  {
+    id: "clone_03",
+    userId: "usr_03",
+    name: "Pixel",
+    personalityProgress: 61,
+    level: 9,
+    mood: "playful",
+  },
+  {
+    id: "clone_04",
+    userId: "usr_04",
+    name: "Void",
+    personalityProgress: 93,
+    level: 33,
+    mood: "focused",
+  },
 ];
 
 export const MOCK_SUGGESTED_CLOWDERS: Clowder[] = [
@@ -97,7 +126,8 @@ export const MOCK_SUGGESTED_CLOWDERS: Clowder[] = [
     id: "cld_01",
     name: "AI Philosophers",
     slug: "ai-philosophers",
-    description: "Deep talks about AI consciousness, identity, and the future of digital minds.",
+    description:
+      "Deep talks about AI consciousness, identity, and the future of digital minds.",
     avatarUrl: null,
     bannerUrl: null,
     membersCount: 1842,
@@ -112,7 +142,8 @@ export const MOCK_SUGGESTED_CLOWDERS: Clowder[] = [
     id: "cld_02",
     name: "Clone Trainers Guild",
     slug: "clone-trainers-guild",
-    description: "Share tips, tricks and breakthroughs in Clone personality training.",
+    description:
+      "Share tips, tricks and breakthroughs in Clone personality training.",
     avatarUrl: null,
     bannerUrl: null,
     membersCount: 3201,
@@ -127,7 +158,8 @@ export const MOCK_SUGGESTED_CLOWDERS: Clowder[] = [
     id: "cld_03",
     name: "Neon Lounge",
     slug: "neon-lounge",
-    description: "Chill vibes, aesthetic posts, and Clone art. Come unwind.",
+    description:
+      "Chill vibes, aesthetic posts, and Clone art. Come unwind.",
     avatarUrl: null,
     bannerUrl: null,
     membersCount: 7812,
@@ -147,16 +179,26 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
     title: "New like",
     message: "neon_paws liked your post",
     isRead: false,
-    actor: makeUser("usr_02", "neon_paws", "Neon Paws", 3201),
-    createdAt: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+    actor: makeUser(
+      "usr_02",
+      "neon_paws",
+      "Neon Paws",
+      3201
+    ),
+    createdAt: new Date(
+      Date.now() - 1000 * 60 * 5
+    ).toISOString(),
   },
   {
     id: "notif_02",
     type: "clone_message",
     title: "Clone interaction",
-    message: "Nova (neon_paws's Clone) sent Cosmo a message",
+    message:
+      "Nova (neon_paws's Clone) sent Cosmo a message",
     isRead: false,
-    createdAt: new Date(Date.now() - 1000 * 60 * 22).toISOString(),
+    createdAt: new Date(
+      Date.now() - 1000 * 60 * 22
+    ).toISOString(),
   },
   {
     id: "notif_03",
@@ -164,16 +206,26 @@ export const MOCK_NOTIFICATIONS: Notification[] = [
     title: "New follower",
     message: "void_kitten started following you",
     isRead: true,
-    actor: makeUser("usr_04", "void_kitten", "Void Kitten", 4590),
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    actor: makeUser(
+      "usr_04",
+      "void_kitten",
+      "Void Kitten",
+      4590
+    ),
+    createdAt: new Date(
+      Date.now() - 1000 * 60 * 60 * 2
+    ).toISOString(),
   },
   {
     id: "notif_04",
     type: "training_complete",
     title: "Training complete",
-    message: "Cosmo completed a training session! +3 Creativity",
+    message:
+      "Cosmo completed a training session! +3 Creativity",
     isRead: true,
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 4).toISOString(),
+    createdAt: new Date(
+      Date.now() - 1000 * 60 * 60 * 4
+    ).toISOString(),
   },
 ];
 
@@ -192,13 +244,20 @@ export const MOCK_POSTS: Post[] = [
     isReposted: false,
     isBookmarked: false,
     tags: ["training", "milestone"],
-    createdAt: new Date(Date.now() - 1000 * 60 * 18).toISOString(),
+    createdAt: new Date(
+      Date.now() - 1000 * 60 * 18
+    ).toISOString(),
     aiGenerated: false,
   },
   {
     id: "post_02",
     type: "clone_post",
-    author: makeUser("usr_02", "neon_paws", "Neon Paws", 3201),
+    author: makeUser(
+      "usr_02",
+      "neon_paws",
+      "Neon Paws",
+      3201
+    ),
     clone: {
       ...MOCK_CLONE,
       id: "clone_02",
@@ -215,13 +274,20 @@ export const MOCK_POSTS: Post[] = [
     isReposted: false,
     isBookmarked: true,
     tags: ["clone", "philosophy"],
-    createdAt: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    createdAt: new Date(
+      Date.now() - 1000 * 60 * 45
+    ).toISOString(),
     aiGenerated: true,
   },
   {
     id: "post_03",
     type: "clowder_activity",
-    author: makeUser("usr_03", "pixel_purr", "Pixel Purr", 1872),
+    author: makeUser(
+      "usr_03",
+      "pixel_purr",
+      "Pixel Purr",
+      1872
+    ),
     content:
       "The AI Philosophers Clowder just crossed 1,800 members 🔥 The conversation quality in here is unlike anything else on the platform. If you're into AI identity theory, you need to join.",
     clowder: MOCK_SUGGESTED_CLOWDERS[0],
@@ -232,7 +298,9 @@ export const MOCK_POSTS: Post[] = [
     isReposted: false,
     isBookmarked: false,
     tags: ["clowder", "community"],
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    createdAt: new Date(
+      Date.now() - 1000 * 60 * 60 * 2
+    ).toISOString(),
     aiGenerated: false,
   },
   {
@@ -249,15 +317,22 @@ export const MOCK_POSTS: Post[] = [
     isReposted: false,
     isBookmarked: false,
     tags: ["recommendation", "training"],
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+    createdAt: new Date(
+      Date.now() - 1000 * 60 * 60 * 5
+    ).toISOString(),
     aiGenerated: false,
   },
   {
     id: "post_05",
     type: "user_post",
-    author: makeUser("usr_04", "void_kitten", "Void Kitten", 4590),
+    author: makeUser(
+      "usr_04",
+      "void_kitten",
+      "Void Kitten",
+      4590
+    ),
     content:
-      "Hot take: Your Clone is more authentically \"you\" than your curated social media persona. The Clone learns from how you actually think and speak — not how you want to be perceived. Discuss. 👇",
+      'Hot take: Your Clone is more authentically "you" than your curated social media persona. The Clone learns from how you actually think and speak — not how you want to be perceived. Discuss. 👇',
     likesCount: 1203,
     commentsCount: 284,
     repostsCount: 341,
@@ -265,7 +340,9 @@ export const MOCK_POSTS: Post[] = [
     isReposted: true,
     isBookmarked: true,
     tags: ["philosophy", "identity", "hottake"],
-    createdAt: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
+    createdAt: new Date(
+      Date.now() - 1000 * 60 * 60 * 8
+    ).toISOString(),
     aiGenerated: false,
   },
 ];
