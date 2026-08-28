@@ -221,4 +221,100 @@ export class ClonesService {
     text: msg.content,
   }));
 }
+
+  // ============================================================
+  // CLONE MEMORY
+  // ============================================================
+
+  async getMemories(userId: string) {
+    const clone = await this.prisma.clone.findUnique({
+      where: { userId },
+    });
+
+    if (!clone) {
+      throw new NotFoundException('Clone not found');
+    }
+
+    return this.prisma.cloneMemory.findMany({
+      where: {
+        cloneId: clone.id,
+      },
+      orderBy: [
+        {
+          importance: 'desc',
+        },
+        {
+          createdAt: 'desc',
+        },
+      ],
+    });
+  }
+
+  async createMemory(
+    userId: string,
+    memory: string,
+    importance = 50,
+  ) {
+    const clone = await this.prisma.clone.findUnique({
+      where: { userId },
+    });
+
+    if (!clone) {
+      throw new NotFoundException('Clone not found');
+    }
+
+    if (!memory || !memory.trim()) {
+      throw new Error('Memory cannot be empty');
+    }
+
+    const safeImportance = Math.min(
+      100,
+      Math.max(0, Number(importance)),
+    );
+
+    return this.prisma.cloneMemory.create({
+      data: {
+        cloneId: clone.id,
+        memory: memory.trim(),
+        importance: safeImportance,
+      },
+    });
+  }
+
+  async deleteMemory(
+    userId: string,
+    memoryId: string,
+  ) {
+    const clone = await this.prisma.clone.findUnique({
+      where: { userId },
+    });
+
+    if (!clone) {
+      throw new NotFoundException('Clone not found');
+    }
+
+    const memory = await this.prisma.cloneMemory.findFirst({
+      where: {
+        id: memoryId,
+        cloneId: clone.id,
+      },
+    });
+
+    if (!memory) {
+      throw new NotFoundException('Memory not found');
+    }
+
+    await this.prisma.cloneMemory.delete({
+      where: {
+        id: memoryId,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Memory deleted successfully',
+    };
+  }
+
+
 }

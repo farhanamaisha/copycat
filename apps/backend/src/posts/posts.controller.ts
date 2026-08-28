@@ -9,6 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { PostsService } from './posts.service';
 
@@ -18,7 +19,10 @@ export class PostsController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  createPost(@Req() req, @Body() body: { content: string; tags?: string[] }) {
+  createPost(
+    @Req() req,
+    @Body() body: { content: string; tags?: string[] },
+  ) {
     return this.postsService.createPost(req.user.userId, body);
   }
 
@@ -36,35 +40,85 @@ export class PostsController {
     );
   }
 
-  @Get(':postId')
-  getPost(@Req() req, @Param('postId') postId: string) {
-    const userId = req.user?.userId;
-    return this.postsService.getPost(postId, userId);
-  }
-
-  @Post(':postId/like')
-  @UseGuards(JwtAuthGuard)
-  toggleLike(@Req() req, @Param('postId') postId: string) {
-    return this.postsService.toggleLike(postId, req.user.userId);
-  }
-
-  @Delete(':postId')
-  @UseGuards(JwtAuthGuard)
-  deletePost(@Req() req, @Param('postId') postId: string) {
-    return this.postsService.deletePost(postId, req.user.userId);
-  }
-
   @Get('user/:userId')
   getUserPosts(
     @Req() req,
     @Param('userId') userId: string,
     @Query('limit') limit?: string,
   ) {
-    const currentUserId = req.user?.userId;
     return this.postsService.getUserPosts(
       userId,
-      currentUserId,
+      req.user?.userId,
       limit ? parseInt(limit) : 20,
+    );
+  }
+
+  // GET COMMENTS
+  @Get(':postId/comments')
+  getComments(@Param('postId') postId: string) {
+    return this.postsService.getComments(postId);
+  }
+
+  // CREATE COMMENT
+  @Post(':postId/comments')
+  @UseGuards(JwtAuthGuard)
+  createComment(
+    @Req() req,
+    @Param('postId') postId: string,
+    @Body() body: { content: string },
+  ) {
+    return this.postsService.createComment(
+      postId,
+      req.user.userId,
+      body.content,
+    );
+  }
+
+  // DELETE COMMENT
+  @Delete('comments/:commentId')
+  @UseGuards(JwtAuthGuard)
+  deleteComment(
+    @Req() req,
+    @Param('commentId') commentId: string,
+  ) {
+    return this.postsService.deleteComment(
+      commentId,
+      req.user.userId,
+    );
+  }
+
+  @Get(':postId')
+  getPost(
+    @Req() req,
+    @Param('postId') postId: string,
+  ) {
+    return this.postsService.getPost(
+      postId,
+      req.user?.userId,
+    );
+  }
+
+  @Post(':postId/like')
+  @UseGuards(JwtAuthGuard)
+  toggleLike(
+    @Req() req,
+    @Param('postId') postId: string,
+  ) {
+    return this.postsService.toggleLike(
+      postId,
+      req.user.userId,
+    );
+  }
+
+  @Delete(':postId')
+  @UseGuards(JwtAuthGuard)
+  deletePost(
+    @Req() req,
+    @Param('postId') postId: string,
+  ) {
+    return this.postsService.deletePost(
+      postId,
+      req.user.userId,
     );
   }
 }

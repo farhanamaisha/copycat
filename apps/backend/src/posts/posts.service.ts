@@ -180,6 +180,9 @@ export class PostsService {
     }
   }
 
+
+
+
   async deletePost(postId: string, userId: string) {
     const post = await this.prisma.post.findUnique({
       where: { id: postId },
@@ -219,4 +222,95 @@ export class PostsService {
       updatedAt: post.updatedAt,
     };
   }
+  async getComments(postId: string) {
+  const post = await this.prisma.post.findUnique({
+    where: { id: postId },
+    select: { id: true },
+  });
+
+  if (!post) {
+    throw new NotFoundException('Post not found');
+  }
+
+  return this.prisma.comment.findMany({
+    where: { postId },
+    include: {
+      author: {
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+        },
+      },
+    },
+    orderBy: {
+      createdAt: 'asc',
+    },
+  });
+}
+
+async createComment(
+  postId: string,
+  userId: string,
+  content: string,
+) {
+  if (!content || content.trim().length === 0) {
+    throw new BadRequestException('Comment cannot be empty');
+  }
+
+  const post = await this.prisma.post.findUnique({
+    where: { id: postId },
+    select: { id: true },
+  });
+
+  if (!post) {
+    throw new NotFoundException('Post not found');
+  }
+
+  const comment = await this.prisma.comment.create({
+    data: {
+      postId,
+      authorId: userId,
+      content: content.trim(),
+    },
+    include: {
+      author: {
+        select: {
+          id: true,
+          username: true,
+          displayName: true,
+          avatarUrl: true,
+        },
+      },
+    },
+  });
+
+  return comment;
+}
+
+async deleteComment(
+  commentId: string,
+  userId: string,
+) {
+  const comment = await this.prisma.comment.findUnique({
+    where: { id: commentId },
+  });
+
+  if (!comment) {
+    throw new NotFoundException('Comment not found');
+  }
+
+  if (comment.authorId !== userId) {
+    throw new BadRequestException(
+      "Cannot delete another user's comment",
+    );
+  }
+
+  await this.prisma.comment.delete({
+    where: { id: commentId },
+  });
+
+  return { success: true };
+}
 }

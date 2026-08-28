@@ -13,6 +13,12 @@ export interface User {
   createdAt: string;
   isVerified: boolean;
   isPremium: boolean;
+  clone: {
+  id?: string;
+  name: string;
+  level: number;
+  mood?: string;
+} | null;
 }
 
 export interface Clone {

@@ -89,58 +89,87 @@ export function useFeed() {
     sortBy: "latest",
   });
 
+  const loadFeed = useCallback(async () => {
+    try {
+      setIsLoading(true);
+
+      const response = await apiClient.get<
+        { success: boolean; data: Post[] } | Post[]
+      >(
+        `/posts/feed?type=${filters.type}&sortBy=${filters.sortBy}`,
+      );
+
+      const data = Array.isArray(response)
+        ? response
+        : response.data;
+
+      setPosts(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to load feed:", error);
+
+      // IMPORTANT: no mock fallback
+      setPosts([]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [filters.type, filters.sortBy]);
+
   useEffect(() => {
-    setIsLoading(true);
-    const loadFeed = async () => {
-      try {
-        const feedData = await apiClient.get("/posts/feed");
-        setPosts(Array.isArray(feedData) ? feedData : []);
-      } catch (error) {
-        console.error("Failed to load feed:", error);
-        // Fall back to mock posts
-        setPosts(MOCK_POSTS);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    loadFeed();
+  }, [loadFeed]);
 
-    const timer = setTimeout(() => {
-      loadFeed();
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [filters]);
-
-  const toggleLike = useCallback((postId: string) => {
-    setPosts((prev: Post[]) =>
-      prev.map((p: Post) =>
+  const toggleLike = useCallback(async (postId: string) => {
+    // Optimistic UI
+    setPosts((prev) =>
+      prev.map((p) =>
         p.id === postId
-          ? { ...p, isLiked: !p.isLiked, likesCount: p.isLiked ? p.likesCount - 1 : p.likesCount + 1 }
-          : p
-      )
+          ? {
+              ...p,
+              isLiked: !p.isLiked,
+              likesCount: p.isLiked
+                ? p.likesCount - 1
+                : p.likesCount + 1,
+            }
+          : p,
+      ),
     );
 
-    // Sync with backend
-    apiClient.post(`/posts/${postId}/like`, {}).catch((error) => {
+    try {
+      await apiClient.post(`/posts/${postId}/like`, {});
+    } catch (error) {
       console.error("Failed to toggle like:", error);
-    });
-  }, []);
+
+      // Reload real backend state if request fails
+      await loadFeed();
+    }
+  }, [loadFeed]);
 
   const toggleBookmark = useCallback((postId: string) => {
-    setPosts((prev: Post[]) =>
-      prev.map((p: Post) =>
-        p.id === postId ? { ...p, isBookmarked: !p.isBookmarked } : p
-      )
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.id === postId
+          ? {
+              ...p,
+              isBookmarked: !p.isBookmarked,
+            }
+          : p,
+      ),
     );
   }, []);
 
   const toggleRepost = useCallback((postId: string) => {
-    setPosts((prev: Post[]) =>
-      prev.map((p: Post) =>
+    setPosts((prev) =>
+      prev.map((p) =>
         p.id === postId
-          ? { ...p, isReposted: !p.isReposted, repostsCount: p.isReposted ? p.repostsCount - 1 : p.repostsCount + 1 }
-          : p
-      )
+          ? {
+              ...p,
+              isReposted: !p.isReposted,
+              repostsCount: p.isReposted
+                ? p.repostsCount - 1
+                : p.repostsCount + 1,
+            }
+          : p,
+      ),
     );
   }, []);
 
@@ -155,16 +184,102 @@ export function useFeed() {
   };
 }
 
-export function useNotifications() {
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
-  const unreadCount = notifications.filter((n: Notification) => !n.isRead).length;
 
-  const markAllRead = useCallback(() => {
-    setNotifications((prev: Notification[]) => prev.map((n: Notification) => ({ ...n, isRead: true })));
+export function useNotifications() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      setIsLoading(true);
+
+      const [notificationsResponse, unreadResponse] =
+        await Promise.all([
+          apiClient.get<{
+            success: boolean;
+            data: Notification[];
+          }>("/notifications"),
+
+          apiClient.get<{
+            success: boolean;
+            data: { count: number };
+          }>("/notifications/unread-count"),
+        ]);
+
+      setNotifications(notificationsResponse.data);
+      setUnreadCount(unreadResponse.data.count);
+    } catch (error) {
+      console.error("Failed to load notifications:", error);
+      setNotifications([]);
+      setUnreadCount(0);
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  return { notifications, unreadCount, markAllRead };
+  useEffect(() => {
+    loadNotifications();
+  }, [loadNotifications]);
+
+  const markRead = useCallback(async (notificationId: string) => {
+    try {
+      await apiClient.patch(
+        `/notifications/${notificationId}/read`,
+        {},
+      );
+
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === notificationId
+            ? { ...notification, isRead: true }
+            : notification,
+        ),
+      );
+
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error(
+        "Failed to mark notification as read:",
+        error,
+      );
+    }
+  }, []);
+
+  const markAllRead = useCallback(async () => {
+    try {
+      await apiClient.patch(
+        "/notifications/read-all",
+        {},
+      );
+
+      setNotifications((prev) =>
+        prev.map((notification) => ({
+          ...notification,
+          isRead: true,
+        })),
+      );
+
+      setUnreadCount(0);
+    } catch (error) {
+      console.error(
+        "Failed to mark all notifications as read:",
+        error,
+      );
+    }
+  }, []);
+
+  return {
+    notifications,
+    unreadCount,
+    isLoading,
+    markRead,
+    markAllRead,
+    reloadNotifications: loadNotifications,
+  };
 }
+
+
 
 export function useSuggestions() {
   return {

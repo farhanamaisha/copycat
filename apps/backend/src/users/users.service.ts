@@ -35,35 +35,46 @@ export class UsersService {
     };
   }
 
-  async findByUsername(username: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { username },
-      include: {
-        followers: true,
-        following: true,
-        clowderMembers: true,
-      },
-    });
 
-    if (!user) {
-      throw new NotFoundException(`User @${username} not found`);
-    }
+async findByUsername(username: string) {
+  const user = await this.prisma.user.findUnique({
+    where: { username },
+    include: {
+      followers: true,
+      following: true,
+      clowderMembers: true,
+      clone: true,
+    },
+  });
 
-    return {
-      id: user.id,
-      username: user.username,
-      displayName: user.displayName || user.username,
-      email: user.email,
-      avatarUrl: user.avatarUrl || null,
-      bio: user.bio || null,
-      followersCount: user.followers.length,
-      followingCount: user.following.length,
-      clowdersCount: user.clowderMembers.length,
-      createdAt: user.createdAt,
-      isVerified: user.isVerified,
-      isPremium: user.isPremium,
-    };
+  if (!user) {
+    throw new NotFoundException(`User @${username} not found`);
   }
+
+  return {
+    id: user.id,
+    username: user.username,
+    displayName: user.displayName || user.username,
+    email: user.email,
+    avatarUrl: user.avatarUrl || null,
+    bio: user.bio || null,
+    followersCount: user.followers.length,
+    followingCount: user.following.length,
+    clowdersCount: user.clowderMembers.length,
+    createdAt: user.createdAt,
+    isVerified: user.isVerified,
+    isPremium: user.isPremium,
+    clone: user.clone
+      ? {
+          id: user.clone.id,
+          name: user.clone.name,
+          level: user.clone.level,
+          mood: user.clone.mood,
+        }
+      : null,
+  };
+}
+
 
   async updateProfile(
     userId: string,

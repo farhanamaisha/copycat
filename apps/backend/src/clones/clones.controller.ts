@@ -1,12 +1,16 @@
+
 import {
   Controller,
   Get,
   Patch,
   Post,
+  Delete,
   Body,
+  Param,
   Req,
   UseGuards,
 } from '@nestjs/common';
+
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ClonesService } from './clones.service';
 
@@ -54,7 +58,8 @@ export class ClonesController {
       body.delta,
     );
   }
-    @Post('chat')
+
+  @Post('chat')
   @UseGuards(JwtAuthGuard)
   chatWithClone(
     @Req() req: RequestWithUser,
@@ -65,9 +70,49 @@ export class ClonesController {
       body.message,
     );
   }
+
   @Get('chat/history')
-@UseGuards(JwtAuthGuard)
-getChatHistory(@Req() req: RequestWithUser) {
-  return this.clonesService.getChatHistory(req.user.userId);
-}
+  @UseGuards(JwtAuthGuard)
+  getChatHistory(@Req() req: RequestWithUser) {
+    return this.clonesService.getChatHistory(req.user.userId);
+  }
+
+  // ============================================================
+  // CLONE MEMORY
+  // ============================================================
+
+  @Get('me/memories')
+  @UseGuards(JwtAuthGuard)
+  getMemories(@Req() req: RequestWithUser) {
+    return this.clonesService.getMemories(req.user.userId);
+  }
+
+  @Post('me/memories')
+  @UseGuards(JwtAuthGuard)
+  createMemory(
+    @Req() req: RequestWithUser,
+    @Body()
+    body: {
+      memory: string;
+      importance?: number;
+    },
+  ) {
+    return this.clonesService.createMemory(
+      req.user.userId,
+      body.memory,
+      body.importance,
+    );
+  }
+
+  @Delete('me/memories/:memoryId')
+  @UseGuards(JwtAuthGuard)
+  deleteMemory(
+    @Req() req: RequestWithUser,
+    @Param('memoryId') memoryId: string,
+  ) {
+    return this.clonesService.deleteMemory(
+      req.user.userId,
+      memoryId,
+    );
+  }
 }

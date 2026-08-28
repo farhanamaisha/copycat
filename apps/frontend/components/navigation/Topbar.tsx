@@ -48,10 +48,23 @@ export function Topbar() {
 
       <div className="flex items-center gap-2">
         {/* Write post */}
-        <button className="hidden sm:flex items-center gap-1.5 px-3 h-8 rounded-[9px] bg-[#4f9fff]/10 border border-[#4f9fff]/20 text-[#4f9fff] text-[12px] font-medium hover:bg-[#4f9fff]/20 transition-all">
-          <Icons.Plus size={14} />
-          Post
-        </button>
+       <button
+  onClick={() => {
+    document
+      .getElementById("post-composer")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+
+    setTimeout(() => {
+      document
+        .getElementById("post-composer-input")
+        ?.focus();
+    }, 400);
+  }}
+  className="hidden sm:flex items-center gap-1.5 px-3 h-8 rounded-[9px] bg-[#4f9fff]/10 border border-[#4f9fff]/20 text-[#4f9fff] text-[12px] font-medium hover:bg-[#4f9fff]/20 transition-all"
+>
+  <Icons.Plus size={14} />
+  Post
+</button>
 
         {/* Notifications */}
         <div ref={notifRef} className="relative">
