@@ -1,15 +1,12 @@
 // apps/backend/src/ai/ai.service.ts
+
 import {
   Injectable,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-
-type TrainingSessionSummary = {
-  prompt: string;
-  response: string;
-};
 
 type TrainingAnalysis = {
   traitDeltas: Record<string, number>;
@@ -21,6 +18,7 @@ type TrainingAnalysis = {
 
 @Injectable()
 export class AiService {
+  private readonly logger = new Logger(AiService.name);
   private readonly gemini: GoogleGenerativeAI;
 
   constructor(private readonly prisma: PrismaService) {
@@ -33,6 +31,8 @@ export class AiService {
     }
 
     this.gemini = new GoogleGenerativeAI(apiKey);
+
+    this.logger.log('Gemini AI service initialized.');
   }
 
   // ============================================================
@@ -40,110 +40,110 @@ export class AiService {
   // ============================================================
 
   async chatWithClone(
-  userId: string,
-  message: string,
-): Promise<{ reply: string; cloneId: string }> {
-  const clone = await this.prisma.clone.findUnique({
-    where: { userId },
-    include: {
-      traits: {
-        orderBy: { value: 'desc' },
-        take: 5,
-      },
-      memories: {
-        orderBy: { importance: 'desc' },
-        take: 10,
-      },
-    },
-  });
-
-  if (!clone) {
-    return {
-      reply:
-        "I'm still being created! Train me a little and I'll start developing a personality. 🐱",
-      cloneId: 'none',
-    };
-  }
-
-  // ------------------------------------------------------------
-  // 1. Find or create conversation
-  // ------------------------------------------------------------
-
-  let conversation =
-    await this.prisma.chatConversation.findFirst({
-      where: {
-        userId,
-        cloneId: clone.id,
+    userId: string,
+    message: string,
+  ): Promise<{ reply: string; cloneId: string }> {
+    const clone = await this.prisma.clone.findUnique({
+      where: { userId },
+      include: {
+        traits: {
+          orderBy: { value: 'desc' },
+          take: 5,
+        },
+        memories: {
+          orderBy: { importance: 'desc' },
+          take: 10,
+        },
       },
     });
 
-  if (!conversation) {
-    conversation = await this.prisma.chatConversation.create({
+    if (!clone) {
+      return {
+        reply:
+          "I'm still being created! Train me a little and I'll start developing a personality. 🐱",
+        cloneId: 'none',
+      };
+    }
+
+    // ----------------------------------------------------------
+    // Find or create conversation
+    // ----------------------------------------------------------
+
+    let conversation =
+      await this.prisma.chatConversation.findFirst({
+        where: {
+          userId,
+          cloneId: clone.id,
+        },
+      });
+
+    if (!conversation) {
+      conversation =
+        await this.prisma.chatConversation.create({
+          data: {
+            userId,
+            cloneId: clone.id,
+            title: 'Clone Chat',
+          },
+        });
+    }
+
+    // ----------------------------------------------------------
+    // Save user message
+    // ----------------------------------------------------------
+
+    await this.prisma.chatMessage.create({
       data: {
-        userId,
-        cloneId: clone.id,
-        title: 'Clone Chat',
+        conversationId: conversation.id,
+        role: 'USER',
+        content: message,
       },
     });
-  }
 
-  // ------------------------------------------------------------
-  // 2. Save user's message
-  // ------------------------------------------------------------
+    // ----------------------------------------------------------
+    // Get previous messages
+    // ----------------------------------------------------------
 
-  await this.prisma.chatMessage.create({
-    data: {
-      conversationId: conversation.id,
-      role: 'USER',
-      content: message,
-    },
-  });
+    const previousMessages =
+      await this.prisma.chatMessage.findMany({
+        where: {
+          conversationId: conversation.id,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: 20,
+      });
 
-  // ------------------------------------------------------------
-  // 3. Get previous chat messages
-  // ------------------------------------------------------------
+    // ----------------------------------------------------------
+    // Personality context
+    // ----------------------------------------------------------
 
-  const previousMessages =
-  await this.prisma.chatMessage.findMany({
-    where: {
-      conversationId: conversation.id,
-    },
-    orderBy: {
-      createdAt: 'desc',
-    },
-    take: 20,
-  });
-  
+    const traitContext =
+      clone.traits.length > 0
+        ? clone.traits
+            .map(
+              (trait) =>
+                `- ${trait.name}: ${trait.value}/100`,
+            )
+            .join('\n')
+        : 'No trait scores yet.';
 
-  // ------------------------------------------------------------
-  // 4. Build personality context
-  // ------------------------------------------------------------
+    const memoryContext =
+      clone.memories.length > 0
+        ? clone.memories
+            .map(
+              (memory) =>
+                `- ${memory.memory}`,
+            )
+            .join('\n')
+        : 'No important memories yet.';
 
-  const traitContext =
-    clone.traits.length > 0
-      ? clone.traits
-          .map(
-            (trait) =>
-              `- ${trait.name}: ${trait.value}/100`,
-          )
-          .join('\n')
-      : 'No trait scores yet.';
+    // ----------------------------------------------------------
+    // System prompt
+    // ----------------------------------------------------------
 
-  const memoryContext =
-    clone.memories.length > 0
-      ? clone.memories
-          .map(
-            (memory) =>
-              `- ${memory.memory}`,
-          )
-          .join('\n')
-      : 'No important memories yet.';
-
-  // ------------------------------------------------------------
-  // 5. Build system prompt
-  // ------------------------------------------------------------
-
-  const systemPrompt = `
+    const systemPrompt = `
 You are ${clone.name}, the user's digital Clone.
 
 You are NOT a generic AI assistant.
@@ -173,13 +173,16 @@ ${memoryContext}
 RULES:
 
 1. Respond as the Clone.
-2. IMPORTANT: Use the IMPORTANT MEMORIES section as factual knowledge about the user.
-3. If the user asks about a fact contained in IMPORTANT MEMORIES, answer using that memory directly.
-4. Do not say you don't know something if the answer is present in IMPORTANT MEMORIES.
-5. If the information is not present in your memories or conversation, do not invent it.
+2. Use IMPORTANT MEMORIES as factual knowledge about the user.
+3. If the user asks about a fact contained in IMPORTANT MEMORIES,
+   answer using that memory directly.
+4. Do not say you don't know something if the answer is present
+   in IMPORTANT MEMORIES.
+5. If information is not present in memories or conversation,
+   do not invent it.
 6. Use "I" when referring to yourself.
 7. Reflect the user's personality and communication style.
-8. Use the personality traits and memories when relevant.
+8. Use personality traits and memories when relevant.
 9. Do not claim to be the original human.
 10. Do not say you are a generic AI assistant.
 11. Keep responses conversational.
@@ -188,39 +191,45 @@ RULES:
 14. If personality progress is low, remember that you are still learning.
 `;
 
-  // ------------------------------------------------------------
-  // 6. Convert database history into Gemini context
-  // ------------------------------------------------------------
+    // ----------------------------------------------------------
+    // Conversation context
+    // ----------------------------------------------------------
 
-  const historyContext = previousMessages
-  .reverse()
-  .map((msg) => {
-    const speaker =
-      msg.role === 'USER'
-        ? 'User'
-        : msg.role === 'CLONE'
-          ? 'Clone'
-          : 'System';
+    const historyContext = previousMessages
+      .reverse()
+      .map((msg) => {
+        const speaker =
+          msg.role === 'USER'
+            ? 'User'
+            : msg.role === 'CLONE'
+              ? 'Clone'
+              : 'System';
 
-    return `${speaker}: ${msg.content}`;
-  })
-  .join('\n');
+        return `${speaker}: ${msg.content}`;
+      })
+      .join('\n');
 
-  // ------------------------------------------------------------
-  // 7. Ask Gemini
-  // ------------------------------------------------------------
+    // ----------------------------------------------------------
+    // Gemini
+    // ----------------------------------------------------------
 
-  try {
-    const model = this.gemini.getGenerativeModel({
-      model: 'gemini-3.1-flash-lite',
-    });
+    try {
+      this.logger.log(
+        `Generating Clone response for user ${userId}`,
+      );
 
-    const result = await model.generateContent([
-      {
-        text: systemPrompt,
-      },
-      {
-        text: `
+      const model =
+        this.gemini.getGenerativeModel({
+          model: 'gemini-3.1-flash-lite',
+        });
+
+      const result =
+        await model.generateContent([
+          {
+            text: systemPrompt,
+          },
+          {
+            text: `
 RECENT CONVERSATION:
 
 ${historyContext}
@@ -231,55 +240,66 @@ ${message}
 
 Respond as the Clone.
 `,
-      },
-    ]);
+          },
+        ]);
 
-    const reply =
-      result.response.text()?.trim() ||
-      "I'm thinking... 🐱 Ask me again?";
+      const reply =
+        result.response.text()?.trim() ||
+        "I'm thinking... 🐱 Ask me again?";
 
-    // ----------------------------------------------------------
-    // 8. Save Clone response
-    // ----------------------------------------------------------
+      // --------------------------------------------------------
+      // Save Clone response
+      // --------------------------------------------------------
 
-    await this.prisma.chatMessage.create({
-      data: {
-        conversationId: conversation.id,
-        role: 'CLONE',
-        content: reply,
-        model: 'gemini-3.1-flash-lite',
-      },
-    });
+      await this.prisma.chatMessage.create({
+        data: {
+          conversationId: conversation.id,
+          role: 'CLONE',
+          content: reply,
+          model: 'gemini-3.1-flash-lite',
+        },
+      });
 
-    return {
-      reply,
-      cloneId: clone.id,
-    };
-  } catch (error) {
-    console.error('Gemini chat error:', error);
+      return {
+        reply,
+        cloneId: clone.id,
+      };
+    } catch (error) {
+      this.logger.error(
+        'Gemini chat generation failed',
+        error instanceof Error
+          ? error.stack
+          : String(error),
+      );
 
-    throw new InternalServerErrorException(
-      'Failed to generate Clone response. Please try again.',
-    );
+      throw new InternalServerErrorException(
+        'Failed to generate Clone response. Please try again.',
+      );
+    }
   }
-}
+
   // ============================================================
   // ANALYZE TRAINING RESPONSE
   // ============================================================
 
-async analyzeTrainingResponse(
-  prompt: string,
-  userResponse: string,
-): Promise<TrainingAnalysis> {
-  try {
-    const model = this.gemini.getGenerativeModel({
-      model: 'gemini-3.1-flash-lite',
-      generationConfig: {
-        responseMimeType: 'application/json',
-      },
-    });
+  async analyzeTrainingResponse(
+    prompt: string,
+    userResponse: string,
+  ): Promise<TrainingAnalysis> {
+    try {
+      this.logger.log(
+        'Starting Gemini training analysis...',
+      );
 
-    const trainingPrompt = `
+      const model =
+        this.gemini.getGenerativeModel({
+          model: 'gemini-3.1-flash-lite',
+          generationConfig: {
+            responseMimeType: 'application/json',
+          },
+        });
+
+      const trainingPrompt = `
 Analyze this user's response to a personality training question.
 
 TRAINING PROMPT:
@@ -293,13 +313,18 @@ Determine:
 1. How the response should adjust these personality traits.
 2. A one-sentence analysis of what the response reveals about the user.
 3. The quality of the response.
-4. Whether the response contains an important personal fact that the Clone should remember for future conversations.
+4. Whether the response contains an important personal fact that
+   the Clone should remember for future conversations.
 
 IMPORTANT MEMORY RULE:
 
-Create a memory ONLY when the response contains a useful personal fact, preference, relationship, identity detail, experience, opinion, or other information that would help the Clone answer future questions.
+Create a memory ONLY when the response contains a useful personal
+fact, preference, relationship, identity detail, experience,
+opinion, or other information that would help the Clone answer
+future questions.
 
-Examples of things worth remembering:
+Examples:
+
 - "My brother's name is Rahim."
 - "My favorite color is blue."
 - "I live in Sylhet."
@@ -309,6 +334,7 @@ Examples of things worth remembering:
 - "I prefer tea over coffee."
 
 Do NOT create memories for:
+
 - Generic answers
 - Temporary information
 - Questions themselves
@@ -367,97 +393,147 @@ Return ONLY valid JSON in exactly this structure:
 }
 `;
 
-    const result = await model.generateContent(trainingPrompt);
+      const result =
+        await model.generateContent(trainingPrompt);
 
-    const raw = result.response.text()?.trim() || '{}';
+      const raw =
+        result.response.text()?.trim() || '';
 
-    const parsed = JSON.parse(raw) as {
-      traitDeltas?: Record<string, number>;
-      analysis?: string;
-      quality?: 'low' | 'medium' | 'high' | 'excellent';
-      memory?: string | null;
-      memoryImportance?: number;
-    };
-    console.log('🧠 TRAINING MEMORY:', parsed.memory);
-console.log('⭐ MEMORY IMPORTANCE:', parsed.memoryImportance);
-     
-    const traitDeltas: Record<string, number> = {};
+      this.logger.log(
+        `Gemini training response: ${raw.slice(0, 500)}`,
+      );
 
-    for (const trait of [
-      'Humor',
-      'Empathy',
-      'Creativity',
-      'Logic',
-      'Curiosity',
-    ]) {
-      const value = Number(parsed.traitDeltas?.[trait] ?? 0);
+      if (!raw) {
+        throw new Error(
+          'Gemini returned an empty training response.',
+        );
+      }
 
-      traitDeltas[trait] = Math.min(
-        5,
+      let parsed: {
+        traitDeltas?: Record<string, number>;
+        analysis?: string;
+        quality?: 'low' | 'medium' | 'high' | 'excellent';
+        memory?: string | null;
+        memoryImportance?: number;
+      };
+
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        this.logger.error(
+          `Gemini returned invalid JSON: ${raw}`,
+        );
+
+        throw new Error(
+          'Gemini returned invalid JSON.',
+        );
+      }
+
+      // --------------------------------------------------------
+      // Trait deltas
+      // --------------------------------------------------------
+
+      const traitDeltas: Record<string, number> = {};
+
+      for (const trait of [
+        'Humor',
+        'Empathy',
+        'Creativity',
+        'Logic',
+        'Curiosity',
+      ]) {
+        const value = Number(
+          parsed.traitDeltas?.[trait] ?? 0,
+        );
+
+        traitDeltas[trait] = Math.min(
+          5,
+          Math.max(
+            -3,
+            Number.isFinite(value) ? value : 0,
+          ),
+        );
+      }
+
+      // --------------------------------------------------------
+      // Quality
+      // --------------------------------------------------------
+
+      const validQualities = [
+        'low',
+        'medium',
+        'high',
+        'excellent',
+      ] as const;
+
+      const quality =
+        validQualities.includes(
+          parsed.quality as
+            (typeof validQualities)[number],
+        )
+          ? parsed.quality!
+          : 'medium';
+
+      // --------------------------------------------------------
+      // Memory
+      // --------------------------------------------------------
+
+      const memory =
+        typeof parsed.memory === 'string' &&
+        parsed.memory.trim().length > 0
+          ? parsed.memory.trim()
+          : null;
+
+      const importanceNumber = Number(
+        parsed.memoryImportance,
+      );
+
+      const memoryImportance = Math.min(
+        10,
         Math.max(
-          -3,
-          Number.isFinite(value) ? value : 0,
+          1,
+          Number.isFinite(importanceNumber)
+            ? importanceNumber
+            : 1,
         ),
       );
+
+      const analysis =
+        typeof parsed.analysis === 'string' &&
+        parsed.analysis.trim()
+          ? parsed.analysis.trim()
+          : 'Response processed.';
+
+      this.logger.log(
+        `Training analysis complete. Quality: ${quality}`,
+      );
+
+      if (memory) {
+        this.logger.log(
+          `Training memory detected: ${memory}`,
+        );
+      }
+
+      return {
+        traitDeltas,
+        analysis,
+        quality,
+        memory,
+        memoryImportance,
+      };
+    } catch (error) {
+      this.logger.error(
+        'Gemini training analysis failed',
+        error instanceof Error
+          ? error.stack
+          : String(error),
+      );
+
+      // IMPORTANT:
+      // Do NOT silently pretend Gemini succeeded.
+      throw new InternalServerErrorException(
+        'Gemini training analysis failed. Please try again.',
+      );
     }
-
-    const validQualities = [
-      'low',
-      'medium',
-      'high',
-      'excellent',
-    ] as const;
-
-    const quality = validQualities.includes(
-      parsed.quality as (typeof validQualities)[number],
-    )
-      ? parsed.quality!
-      : 'medium';
-
-    const memory =
-      typeof parsed.memory === 'string' &&
-      parsed.memory.trim().length > 0
-        ? parsed.memory.trim()
-        : null;
-
-    const memoryImportance = Math.min(
-      10,
-      Math.max(
-        1,
-        Number.isFinite(Number(parsed.memoryImportance))
-          ? Number(parsed.memoryImportance)
-          : 1,
-      ),
-    );
-
-    return {
-      traitDeltas,
-      analysis:
-        parsed.analysis?.trim() ||
-        'Response processed.',
-      quality,
-      memory,
-      memoryImportance,
-    };
-  } catch (error) {
-    console.error(
-      'Gemini training analysis error:',
-      error,
-    );
-
-    return {
-      traitDeltas: {
-        Humor: 1,
-        Empathy: 0,
-        Creativity: 1,
-        Logic: 0,
-        Curiosity: 1,
-      },
-      analysis: 'Response recorded and processed.',
-      quality: 'medium',
-      memory: null,
-      memoryImportance: 1,
-    };
   }
-}
 }
